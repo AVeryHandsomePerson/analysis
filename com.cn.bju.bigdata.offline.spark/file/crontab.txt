@@ -1,0 +1,85 @@
+{"yn":1}
+
+
+CREATE TABLE event_stream (yn String) \
+ENGINE = Kafka('bogon2:9092', 'tests', 'clickHost', 'JSONEachRow');
+
+
+drop table event_stream;
+drop table daily;
+drop table consumer;
+
+drop table event_stream;
+CREATE TABLE event_stream (auditTime String, tag String, cnt Int64) \
+ENGINE = Kafka('bogon2:9092,bogon:9092,bogon3:9092', 'events', 'group1', 'JSONEachRow');
+
+
+
+
+{"auditTime":,"tag":"ff","cnt":3}
+{"auditTime":"","tag":"ff","cnt":98}
+{"auditTime":"2021-03-21 13:09:06","tag":"ff","cnt":73}
+{"auditTime":"2021-03-21 14:09:06","tag":"ff","cnt":15}
+
+
+OPTIMIZE TABLE default.daily;
+
+CREATE TABLE daily on cluster bip_ck_cluster (ts DateTime, tag String, cnt Int64)  \
+ENGINE = ReplicatedMergeTree('/data/clickhouse/tables/{shard}/daily', '{replica}')\
+primary key tag \
+ORDER BY tag \
+SETTINGS index_granularity = 8192;
+
+create table daily_all on cluster bip_ck_cluster \
+(ts DateTime, tag String, cnt Int64) \
+engine = Distributed(bip_ck_cluster,default, daily,hiveHash(tag)) ;
+
+
+CREATE MATERIALIZED VIEW consumer TO daily \
+AS SELECT * FROM event_stream;
+
+
+　CREATE TABLE org
+  (
+      `org_code` varchar(8),
+      `org_name` varchar(256),
+      `createtime` Datetime
+  )
+  ENGINE = ReplacingMergeTree()
+  PARTITION BY toYYYYMM(createtime)  ##按年月进行分区
+  PRIMARY KEY org_code  #主键
+  ORDER BY (org_code, org_name)
+
+
+
+
+
+
+
+//查看分区
+select database,table,partition,partition_id,name,path from system.parts where table='daily';
+1. 删除分区：
+alter table visits drop partition 202007 ；
+
+
+
+
+CREATE TABLE default.ReplacingMergeTreeTest \
+( \
+ id UInt8, \
+ age UInt8, \
+ name String \
+) ENGINE = ReplacingMergeTree(age) \
+PARTITION BY id \
+ORDER BY id
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,360 @@
+CREATE TABLE default.ReplacingMergeTreeTest \
+( \
+ id UInt8, \
+ age UInt8, \
+ name String \
+) ENGINE = ReplacingMergeTree(age) \
+PARTITION BY id \
+ORDER BY id
+
+create index _orders_buyer_shop_id
+    on orders (buyer_shop_id);
+
+create index _orders_order_id
+    on orders (order_id);
+
+create index _orders_shop_id
+    on orders (shop_id);
+
+CREATE TABLE event_stream
+(
+ts DateTime,
+tag String,
+cnt Int64
+) \
+ENGINE = Kafka('bogon2:9092,bogon:9092,bogon3:9092', 'events', 'group1', 'JSONEachRow');
+
+
+
+//创建fafka 表
+CREATE TABLE dwd_kafka_order( \
+orderId               Int64           , \
+parentOrderId        Int64           , \
+orderType             Int32           , \
+status                 Int32           , \
+buyerStatus           Int32           , \
+sellerType            Int32           , \
+orderPlatform         String          , \
+orderSource           String          , \
+totalMoney            decimal(12, 2)  , \
+freightMoney          decimal(10, 2)  , \
+discountMoney         decimal(12, 2)  , \
+cutMoney              decimal(16, 4)  , \
+otherFee              decimal(10, 2)  , \
+roundDown             decimal(10, 2)  , \
+actuallyPaymentMoney decimal(12, 2)  , \
+buyerId               Int64           , \
+buyerName             String          , \
+buyerShopId          Int64           , \
+buyerShopName        String          , \
+sellerId              Int64           , \
+sellerName            String          , \
+shopId                Int64           , \
+shopName              String          , \
+option               String          , \
+paid                   Int32           , \
+paymentSource         String          , \
+paymentTime           String        , \
+refund                 Int32           , \
+exchange               Int8            , \
+invoice                Int32           , \
+buyerMemo             String          , \
+sellerMemo            String          , \
+isChangePrice        Int32           , \
+changePriceUser      Int64           , \
+changePriceTime      String        , \
+settleFlag            Int32           , \
+evaluation             String          , \
+createTime            String        , \
+modifyTime            String        , \
+createUser            Int64           , \
+modifyUser            Int64           , \
+deposit                decimal(10, 2)  , \
+retainage              decimal(10, 2)  , \
+retainageOrderId     Int64           , \
+presellId             Int64           , \
+presellPayType       Int32           , \
+orderCredit           Int32           , \
+yn                     Int32           , \
+manageUserId         Int64           , \
+manageUsername        String          , \
+buyerManageUserId   Int64           , \
+buyerManageUsername  String          , \
+purchaseDate          String        , \
+warehouseCode         Int32          , \
+warehouseName         String          , \
+reason                 String          , \
+auditTime             String        , \
+auditUserId          Int32           , \
+auditUsername         String          , \
+remark                 String          , \
+sellerOrgCode        String          , \
+sellerOrgParentCode String          , \
+buyerOrgCode         String          , \
+buyerOrgParentCode  String          , \
+deliveryType          Int32           , \
+printPrice            Int32           , \
+consignment            Int32           , \
+storeComplete         Int32           , \
+balanceAmount         decimal(14, 2)  , \
+balanceFlag           Int32           , \
+issueFlag             Int32           , \
+selfPickFlag         Int32           , \
+expectReceiveTime    String        , \
+deliveryRemark        String          , \
+subMchId              String, \
+eventType              String, \
+hour              String, \
+day              String \
+) \
+ENGINE = Kafka('bogon2:9092,bogon:9092,bogon3:9092', 'dwd_order', 'group', 'JSONEachRow');
+
+
+//创建本地表
+CREATE TABLE dwd_order on cluster bip_ck_cluster ( \
+orderId               Int64           , \
+parentOrderId        Int64           , \
+orderType             Int32           , \
+status                 Int32           , \
+buyerStatus           Int32           , \
+sellerType            Int32           , \
+orderPlatform         String          , \
+orderSource           String          , \
+totalMoney            decimal(12, 2)  , \
+freightMoney          decimal(10, 2)  , \
+discountMoney         decimal(12, 2)  , \
+cutMoney              decimal(16, 4)  , \
+otherFee              decimal(10, 2)  , \
+roundDown             decimal(10, 2)  , \
+actuallyPaymentMoney decimal(12, 2)  , \
+buyerId               Int64           , \
+buyerName             String          , \
+buyerShopId          Int64           , \
+buyerShopName        String          , \
+sellerId              Int64           , \
+sellerName            String          , \
+shopId                Int64           , \
+shopName              String          , \
+option               String          , \
+paid                   Int32           , \
+paymentSource         String          , \
+paymentTime           String        , \
+refund                 Int32           , \
+exchange               Int8            , \
+invoice                Int32           , \
+buyerMemo             String          , \
+sellerMemo            String          , \
+isChangePrice        Int32           , \
+changePriceUser      Int64           , \
+changePriceTime      String        , \
+settleFlag            Int32           , \
+evaluation             String          , \
+createTime            String        , \
+modifyTime            String        , \
+createUser            Int64           , \
+modifyUser            Int64           , \
+deposit                decimal(10, 2)  , \
+retainage              decimal(10, 2)  , \
+retainageOrderId     Int64           , \
+presellId             Int64           , \
+presellPayType       Int32           , \
+orderCredit           Int32           , \
+yn                     Int32           , \
+manageUserId         Int64           , \
+manageUsername        String          , \
+buyerManageUserId   Int64           , \
+buyerManageUsername  String          , \
+purchaseDate          String        , \
+warehouseCode         Int32          , \
+warehouseName         String          , \
+reason                 String          , \
+auditTime             String        , \
+auditUserId          Int32           , \
+auditUsername         String          , \
+remark                 String          , \
+sellerOrgCode        String          , \
+sellerOrgParentCode String          , \
+buyerOrgCode         String          , \
+buyerOrgParentCode  String          , \
+deliveryType          Int32           , \
+printPrice            Int32           , \
+consignment            Int32           , \
+storeComplete         Int32           , \
+balanceAmount         decimal(14, 2)  , \
+balanceFlag           Int32           , \
+issueFlag             Int32           , \
+selfPickFlag         Int32           , \
+expectReceiveTime    String        , \
+deliveryRemark        String          , \
+subMchId              String, \
+eventType              String, \
+hour              String, \
+day              String \
+) \
+ENGINE = ReplicatedMergeTree('/data/clickhouse/tables/{shard}/daily', '{replica}')\
+primary key orderId \
+PARTITION BY (day,hour) \
+ORDER BY (orderId,day,hour) \
+SETTINGS index_granularity = 8192;
+
+//创建分布式表
+create table dwd_order_all on cluster bip_ck_cluster \
+( \
+orderId               Int64           , \
+parentOrderId        Int64           , \
+orderType             Int32           , \
+status                 Int32           , \
+buyerStatus           Int32           , \
+sellerType            Int32           , \
+orderPlatform         String          , \
+orderSource           String          , \
+totalMoney            decimal(12, 2)  , \
+freightMoney          decimal(10, 2)  , \
+discountMoney         decimal(12, 2)  , \
+cutMoney              decimal(16, 4)  , \
+otherFee              decimal(10, 2)  , \
+roundDown             decimal(10, 2)  , \
+actuallyPaymentMoney decimal(12, 2)  , \
+buyerId               Int64           , \
+buyerName             String          , \
+buyerShopId          Int64           , \
+buyerShopName        String          , \
+sellerId              Int64           , \
+sellerName            String          , \
+shopId                Int64           , \
+shopName              String          , \
+option               String          , \
+paid                   Int32           , \
+paymentSource         String          , \
+paymentTime           String        , \
+refund                 Int32           , \
+exchange               Int8            , \
+invoice                Int32           , \
+buyerMemo             String          , \
+sellerMemo            String          , \
+isChangePrice        Int32           , \
+changePriceUser      Int64           , \
+changePriceTime      String        , \
+settleFlag            Int32           , \
+evaluation             String          , \
+createTime            String        , \
+modifyTime            String        , \
+createUser            Int64           , \
+modifyUser            Int64           , \
+deposit                decimal(10, 2)  , \
+retainage              decimal(10, 2)  , \
+retainageOrderId     Int64           , \
+presellId             Int64           , \
+presellPayType       Int32           , \
+orderCredit           Int32           , \
+yn                     Int32           , \
+manageUserId         Int64           , \
+manageUsername        String          , \
+buyerManageUserId   Int64           , \
+buyerManageUsername  String          , \
+purchaseDate          String        , \
+warehouseCode         Int32          , \
+warehouseName         String          , \
+reason                 String          , \
+auditTime             String        , \
+auditUserId          Int32           , \
+auditUsername         String          , \
+remark                 String          , \
+sellerOrgCode        String          , \
+sellerOrgParentCode String          , \
+buyerOrgCode         String          , \
+buyerOrgParentCode  String          , \
+deliveryType          Int32           , \
+printPrice            Int32           , \
+consignment            Int32           , \
+storeComplete         Int32           , \
+balanceAmount         decimal(14, 2)  , \
+balanceFlag           Int32           , \
+issueFlag             Int32           , \
+selfPickFlag         Int32           , \
+expectReceiveTime    String        , \
+deliveryRemark        String          , \
+subMchId              String, \
+eventType              String, \
+hour              String, \
+day              String \
+) \
+engine = Distributed(bip_ck_cluster,default, dwd_order,hiveHash(orderId)) ;
+
+//创建视图
+CREATE MATERIALIZED VIEW dwd_order_view TO dwd_order_all \
+AS SELECT * FROM dwd_kafka_order;
+
+
+
+
+//创建 流量点击kafka 表
+CREATE TABLE dwd_kafka_click_log( \
+timeIn String, \
+timeOut String, \
+domain String, \
+url String, \
+title String,  \
+referrer String, \
+sh Int64, \
+sw Int64, \
+cd Int64, \
+lang String, \
+shopId String,  \
+ip String,  \
+province String, \
+city String,  \
+hour String,  \
+day String  \
+) \
+ENGINE = Kafka('bogon2:9092,bogon:9092,bogon3:9092', 'dwd_click_log', 'group', 'JSONEachRow');
+
+
+//创建本地表
+CREATE TABLE dwd_click_log_cluster on cluster bip_ck_cluster ( \
+timeIn String, \
+timeOut String, \
+domain String, \
+url String, \
+title String,  \
+referrer String, \
+sh Int64, \
+sw Int64, \
+cd Int64, \
+lang String, \
+shopId String,  \
+ip String,  \
+province String, \
+city String,  \
+hour String,  \
+day String  \
+) \
+ENGINE = MergeTree()\
+PARTITION BY (day,hour) \
+ORDER BY (day,hour) \
+SETTINGS index_granularity = 8192;
+//创建分布式表
+create table dwd_click_log_all on cluster bip_ck_cluster \
+( \
+timeIn String, \
+timeOut String, \
+domain String, \
+url String, \
+title String,  \
+referrer String, \
+sh Int64, \
+sw Int64, \
+cd Int64, \
+lang String, \
+shopId String,  \
+ip String,  \
+province String, \
+city String,  \
+hour String,  \
+day String  \
+) \
+engine = Distributed(bip_ck_cluster,default, dwd_click_log_cluster,hiveHash(shopId)) ;
+CREATE MATERIALIZED VIEW dwd_click_log_view TO dwd_click_log_all \
+AS SELECT * FROM dwd_kafka_click_log;
+
+
