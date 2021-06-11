@@ -313,27 +313,5 @@ class GoodsAnalysis(spark: SparkSession, dt: String, timeFlag: String) extends W
          |""".stripMargin)
     )
     writerMysql(shopGoodsPurchaseInfoDF, "shop_goods_purchase_info", flag)
-
-
-
-
-    //商品采购
-    //    spark.sql(
-    //      s"""
-    //         |select
-    //         |shop_id,
-    //         |sku_mapping(sku_id) as name,
-    //         |sum(num) as pu_num,
-    //         |cast(sum(payment_total_money)as  decimal(10,2)) as pu_money,
-    //         |$timeFlag as time_flag,
-    //         |$dt as dt
-    //         |from
-    //         |purchase_tmp
-    //         |group by
-    //         |shop_id,sku_id
-    //         |""".stripMargin)
-    //      .write
-    //      .mode(SaveMode.Append)
-    //      .jdbc(StarvConfig.url, "shop_goods_purchase_info", StarvConfig.properties)
   }
 }

@@ -32,7 +32,6 @@ class ClickLogDataETL(env: StreamExecutionEnvironment) extends MQBaseETL(env) {
      * 4：将拉宽后点点击流实体类转换成json字符串
      * 5：将json字符串写入到kafka集群，供Druid进行实时的摄取操作
      */
-
     //获取点击流日志的数据源
     val clickLogDataStream: DataStream[String] = getKafkaDataStream(GlobalConfigUtil.`input.topic.click_log`)
     //将nginx的点击流日志字符串转换成点击流对象
@@ -47,7 +46,6 @@ class ClickLogDataETL(env: StreamExecutionEnvironment) extends MQBaseETL(env) {
     //将json字符串写入到kafka集群
     clickLogJsonDataStream.addSink(kafkaProducer(GlobalConfigUtil.`output.topic.clicklog`))
   }
-
   /**
    * 将点击流日志字符串转换成拉宽后的点击流对象
    *

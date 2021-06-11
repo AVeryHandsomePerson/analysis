@@ -112,7 +112,9 @@ external table dwd.dwd_dim_orders_detail
     create_time string,
     payment_time string,
     status bigint,
-    order_source string
+    order_source string,
+    item_id bigint,
+    item_original_price double
 ) COMMENT '订单表 订单明细中间表'
 PARTITIONED BY (
 dt string

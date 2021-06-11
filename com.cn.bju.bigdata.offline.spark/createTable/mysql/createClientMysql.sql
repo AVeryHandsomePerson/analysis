@@ -40,7 +40,7 @@ create table shop_sale_succeed_info
     dt                    date not null
 ) comment '客单价' charset = utf8;
 
-create table shop_refund_info
+create table shop_deal_refund_info
 (
     shop_id               bigint comment '商铺ID',
     shop_name            varchar(255) comment '商铺名称',
@@ -54,10 +54,11 @@ create table shop_refund_info
 ) comment '退款指标' ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
-create table shop_refund_reason
+create table shop_deal_refund_reason
 (
     shop_id              bigint comment '商铺ID',
     shop_name            varchar(255) comment '商铺名称',
+    refund_reason        varchar(255) comment '退款原因',
     order_type           varchar(5) comment '平台类型',
     refund_reason_number bigint comment '总退款笔数',
     refund_money         Double comment '成功退款金额',
@@ -67,8 +68,21 @@ create table shop_refund_reason
     dt                   date not null
 ) comment '退款理由指标' ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+shop_id,
+shop_name,
+refund_reason,
+order_type,
+refund_reason_number,
+refund_money,
+refund_number,
+refund_number_ratio,
+refund_money_ratio,
+$dt as dt
 
-create table shop_refund_sku
+
+
+
+create table shop_deal_refund_sku
 (
     shop_id              bigint comment '商铺ID',
     shop_name            varchar(255) comment '商铺名称',

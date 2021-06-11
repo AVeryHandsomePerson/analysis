@@ -155,7 +155,6 @@ object BroadcastUtils {
     spark.sparkContext.broadcast(industryMap)
   }
 
-
   def getMsqlSqlSkuPictureMap(spark: SparkSession): Broadcast[Map[Long, String]] = {
     val config = new ReadStarvConfig("read-dev")
     val dataFrame = spark.read.format("jdbc")
@@ -183,8 +182,5 @@ object BroadcastUtils {
       .toMap
     spark.sparkContext.broadcast(dataMap)
   }
-
-
-
 
 }

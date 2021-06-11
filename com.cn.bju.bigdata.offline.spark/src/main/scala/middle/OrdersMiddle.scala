@@ -16,11 +16,6 @@ object OrdersMiddle {
     val dt = args(0)
     val yesterDay = new DateTime(DateUtils.parseDate(dt, "yyyyMMdd")).minusDays(1).toString("yyyyMMdd")
 
-
-
-
-
-
     //获取订单表数据
     spark.sql(
       s"""
@@ -73,6 +68,8 @@ object OrdersMiddle {
         |b.payment_time,
         |b.status,
         |b.order_source,
+        |a.item_id,
+        |a.item_original_price,
         |$dt
         |from
         |(select
@@ -81,9 +78,11 @@ object OrdersMiddle {
         |*
         |if(num is null,0,num) as payment_total_money,
         |item_name,
+        |item_id,
         |cost_price,
         |sku_id,
         |cid,
+        |item_original_price,
         |num
         |from dwd.fact_orders_detail
         |where dt=$dt
@@ -242,6 +241,12 @@ object OrdersMiddle {
         |where level = 1 and  dt=$dt) t1
         |on t2.parent_cid = t1.cid
         |""".stripMargin)
+
+
+
+
+//    where refund_id=315
+
     /**
      *不同店铺下的订单用户
      */

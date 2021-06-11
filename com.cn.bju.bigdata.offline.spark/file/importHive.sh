@@ -290,3 +290,17 @@ sqoop import \
 --hcatalog-partition-keys dt \
 --hcatalog-partition-values ${dt} \
 --hcatalog-storage-stanza 'stored as parquet tblproperties ("orc.compress"="SNAPPY")'
+
+echo 'tradecenter.refund_process'+${dt}
+sqoop import \
+--connect jdbc:mysql://10.2.0.92:3306/tradecenter?serverTimezone=GMT%2B8 \
+--username root \
+--password 123456 \
+--query "select id,platform,process_type,refund_id,complain_id,buyer_id,seller_id,type,content,content_pic_url,create_time,modify_time,create_user,modify_user,yn from refund_process where date_format(create_time,'%Y%m%d') = ${dt} and  \$CONDITIONS" \
+--driver com.mysql.jdbc.Driver \
+--split-by id \
+--hcatalog-database ods \
+--hcatalog-table ods_refund_process \
+--hcatalog-partition-keys dt \
+--hcatalog-partition-values ${dt} \
+--hcatalog-storage-stanza 'stored as parquet tblproperties ("orc.compress"="SNAPPY")'

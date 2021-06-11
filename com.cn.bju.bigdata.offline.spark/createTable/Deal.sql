@@ -296,3 +296,29 @@ external table ods.ods_refund_apply
     tblproperties ("orc.compression" = "snappy");
 ALTER TABLE ods.ods_refund_apply
     ADD IF NOT EXISTS PARTITION (dt = '20210329') location '/user/hive/warehouse/ods.db/ods_refund_apply/dt=20210329/';
+
+
+create table ods.ods_refund_process
+(
+    id              bigint  ,
+    platform        varchar(20)   comment '所属平台',
+    process_type    int           comment '进程类型：1.退款进程，2：投诉进程，3.换货进程',
+    refund_id       bigint        comment '退货退款单号',
+    complain_id     int           comment '投诉Id',
+    buyer_id        bigint        comment '买家Id',
+    seller_id       bigint        comment '卖家Id',
+    type            int           comment '类型：1,买家操作；2.卖家操作；0.平台操作',
+    content         varchar(255)  comment '操作内容',
+    content_pic_url varchar(600)  comment '操作图片',
+    create_time     String      comment '创建时间',
+    modify_time     String      comment '修改时间',
+    create_user     bigint        comment '创建人',
+    modify_user     bigint        comment '修改人',
+    yn              int           comment '是否有效'
+)   comment '退款进程表'
+PARTITIONED BY (
+    dt string
+)
+stored as parquet
+location '/user/hive/warehouse/ods.db/ods_refund_process'
+tblproperties ("orc.compression" = "snappy");

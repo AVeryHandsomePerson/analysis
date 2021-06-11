@@ -21,7 +21,7 @@ class OneGoodsAnalysis(spark: SparkSession, dt: String, timeFlag: String) extend
     log.info("===========> 单品分析模块-开始注册UDF函数:")
     UDFRegister.skuMapping(spark, dt)
     UDFRegister.SkuPictureMapping(spark)
-    UDFRegister.SkuPriceMap(spark)
+    UDFRegister.cidThreeMapping(spark, dt)
     //    UDFRegister.FileIpMapping(spark)
     if (timeFlag.equals("day")) {
       log.info("===========> 单品分析模块-天:" + dt)
@@ -34,9 +34,7 @@ class OneGoodsAnalysis(spark: SparkSession, dt: String, timeFlag: String) extend
            |dwd.dwd_dim_orders_detail
            |where dt=$dt and po_type is null
            |""".stripMargin).createOrReplaceTempView("orders_retail")
-
-      spark.read.json(s"hdfs://bogon:8020/click_log/${dt}/").createOrReplaceTempView("click_log")
-
+      //     spark.read.json(s"hdfs://bogon:8020/click_log/${dt}/").createOrReplaceTempView("click_log")
     } else if (timeFlag.equals("week")) {
       log.info("===========> 单品分析模块-周:" + startTime + "and" + dt)
       //零售
@@ -53,19 +51,54 @@ class OneGoodsAnalysis(spark: SparkSession, dt: String, timeFlag: String) extend
   }
 
   override def process(): Unit = {
-    //最新上架的前10商品数
-    val shopNewputawayGoodsDF = spark.sql(
+    // 商品表 信息
+    spark.sql(
       s"""
-         |with t1 as (select
+         |select
          |shop_id,
          |shelve_time,
          |item_id,
          |item_name,
+         |'' as picture_url,
+         |cid_three_mapping(cid)  as cid_name,
          |row_number() over(partition by shop_id order by shelve_time desc) as profit_top
          |from
          |dwd.fact_item
          |where end_zipper_time = '9999-12-31'
-         |)
+      """.stripMargin).createOrReplaceTempView("item")
+    spark.sql(
+      s"""
+         |select
+         |shop_id,
+         |create_time as shelve_time,
+         |id as item_id,
+         |item_name,
+         |pic_url as picture_url,
+         |cid_three_mapping(cid)  as cid_name,
+         |row_number() over(partition by shop_id order by create_time desc) as profit_top
+         |from
+         |ods.ods_item_master
+         |where dt=$dt
+         |""".stripMargin).createOrReplaceTempView("item_master")
+    spark.sql(
+      """
+        |select
+        |*
+        |from
+        |item
+        |union all
+        |select
+        |*
+        |from
+        |item_master
+        |""".stripMargin).createOrReplaceTempView("item_tmp")
+
+
+
+
+    //最新上架的前10商品数
+    val shopNewputawayGoodsDF = spark.sql(
+      s"""
          |select
          |shop_id,
          |shelve_time,
@@ -73,11 +106,11 @@ class OneGoodsAnalysis(spark: SparkSession, dt: String, timeFlag: String) extend
          |item_name,
          |$dt as dt
          |from
-         |t1
+         |item_tmp
          |where profit_top <= 10
          |order by shelve_time desc
       """.stripMargin)
-    writerMysql(shopNewputawayGoodsDF, "shop_one_goods_newputaway", flag)
+        writerMysql(shopNewputawayGoodsDF, "shop_one_goods_newputaway", flag)
     //商品销量排行
     val shopGoodsSaleTopDF = spark.sql(
       s"""
@@ -91,19 +124,16 @@ class OneGoodsAnalysis(spark: SparkSession, dt: String, timeFlag: String) extend
          |orders_retail
          |group by shop_id,sku_id
       """.stripMargin)
-    writerMysql(shopGoodsSaleTopDF, "shop_one_goods_top", flag)
+        writerMysql(shopGoodsSaleTopDF, "shop_one_goods_top", flag)
     //解析hdfs_page -- 需埋点
-
     /**
      * 每个商品 访客数 -- 需埋点
      */
-
     /**
      * 访问-支付转化率：
      * 支付客户数/访客数。
      * --需埋点
      */
-
     /**
      * 1、加购商品件数( 商品分析-商品明细)：
      * 被客户加入购物车的商品的件数，没有去掉加购后减少的件数。
@@ -113,6 +143,31 @@ class OneGoodsAnalysis(spark: SparkSession, dt: String, timeFlag: String) extend
      * 即加购的客户的数量。当筛选时，暂时不具备合计的加购客户数。
      */
 
+    // 订单明细 中间表 和 商品表关联 获取商品的 上架时间
+    spark.sql(
+      """
+        |select
+        |a.shop_id,
+        |a.item_id,
+        |a.sku_id,
+        |a.paid,
+        |a.buyer_id,
+        |a.num,
+        |a.payment_total_money,
+        |a.order_source,
+        |a.item_original_price, -- 销售价
+        |a.cost_price, -- 成本价
+        |b.shelve_time,
+        |case when b.picture_url is null or b.picture_url == ''
+        |then sku_picture_mapping(a.sku_id) else b.picture_url end as picture_url,
+        |b.cid_name
+        |from
+        |orders_retail a
+        |left join
+        |item_tmp b
+        |on
+        |a.shop_id = b.shop_id and a.item_id = b.item_id
+        |""".stripMargin).createOrReplaceTempView("order_item")
     /**
      * 支付件数
      * 支付人数
@@ -123,13 +178,11 @@ class OneGoodsAnalysis(spark: SparkSession, dt: String, timeFlag: String) extend
      * 下单客户数( 商品分析-商品明细)：
      * 下单商品的客户数，下单即算，包含下单未支付订单，不剔除取消订单
      */
-    val shopGoodsPayInfoDF = spark.sql(
+    spark.sql(
       s"""
          |select
          |shop_id,
          |sku_id,
-         |sku_picture_mapping(sku_id) as picture_url,
-         |sku_price_mapping(sku_id) as sku_price,
          |0 as pv,
          |0 as uv,
          |'all' as source_type,
@@ -141,16 +194,15 @@ class OneGoodsAnalysis(spark: SparkSession, dt: String, timeFlag: String) extend
          |0.00 as sku_rate,
          |$dt as dt
          |from
-         |orders_retail
-         |group by shop_id,sku_id
-         |""".stripMargin).union(
-      spark.sql(
+         |order_item
+         |group by shop_id,
+         |sku_id
+         |""".stripMargin)
+      .union(spark.sql(
         s"""
            |select
            |shop_id,
            |sku_id,
-           |sku_picture_mapping(sku_id) as picture_url,
-           |sku_price_mapping(sku_id) as sku_price,
            |0 as pv,
            |0 as uv,
            |order_source as source_type,
@@ -162,10 +214,50 @@ class OneGoodsAnalysis(spark: SparkSession, dt: String, timeFlag: String) extend
            |0.00 as sku_rate,
            |$dt as dt
            |from
-           |orders_retail
-           |group by shop_id,sku_id,order_source
-           |""".stripMargin)
-    )
+           |order_item
+           |group by shop_id,
+           |sku_id,
+           |order_source
+           |""".stripMargin)).createOrReplaceTempView("shop_one_goods")
+    val shopGoodsPayInfoDF = spark.sql(
+      s"""
+         |select
+         |a.shop_id,
+         |a.sku_id,
+         |a.shelve_time,
+         |a.picture_url,
+         |a.item_original_price, -- 销售价
+         |a.cost_price, -- 成本价
+         |a.cid_name, -- 类目
+         |b.pv,
+         |b.uv,
+         |b.source_type,
+         |b.sku_name,
+         |b.paid_number,
+         |b.sale_user_number,
+         |b.sale_succeed_money,
+         |b.all_sale_user_count,
+         |b.sku_rate,
+         |$dt as dt
+         |from
+         |(
+         |select
+         |distinct
+         |shop_id,
+         |sku_id,
+         |shelve_time,
+         |picture_url,
+         |item_original_price, -- 销售价
+         |cost_price, -- 成本价
+         |cid_name -- 类目
+         |from
+         |order_item
+         |) a
+         |left join
+         |shop_one_goods b
+         |on
+         |a.shop_id = b.shop_id and a.sku_id=b.sku_id
+         |""".stripMargin)
     writerMysql(shopGoodsPayInfoDF, "shop_one_goods_info", flag)
 
     /**

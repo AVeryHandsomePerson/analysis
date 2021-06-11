@@ -68,7 +68,7 @@ class ClickLogAnalysis(spark: SparkSession, dt: String, timeFlag: String) extend
         |shopId,
         |count(1) as pv,
         |count(distinct ip) as uv,
-        |$dt
+        |$dt as dt
         |from
         |dwd_click_log
         |group by shopId

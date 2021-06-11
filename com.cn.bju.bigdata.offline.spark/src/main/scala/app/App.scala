@@ -66,7 +66,7 @@ object App {
         val oneGoodsAnalysis: OneGoodsAnalysis = new OneGoodsAnalysis(spark, dt, timeFlag)
         oneGoodsAnalysis.process()
       case "click_log" =>
-        log.info("===========> 开始执行 单品分析模块")
+        log.info("===========> 开始执行 流量分析模块")
         val clickLogAnalysis: ClickLogAnalysis = new ClickLogAnalysis(spark, dt, timeFlag)
         clickLogAnalysis.process()
       case _ =>

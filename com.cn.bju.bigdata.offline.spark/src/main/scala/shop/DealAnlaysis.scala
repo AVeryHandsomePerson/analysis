@@ -49,7 +49,20 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
            |from
            |dwd.dwd_dim_refund_detail
            |where dt=$dt and po_type is null
-           |""".stripMargin).createOrReplaceTempView("refund_orders")
+           |""".stripMargin).createOrReplaceTempView("refund_orders_tmp")
+      // 取出当天退款申请时 第一次请求时间和最后一次响应时间
+      spark.sql(
+        s"""
+           |
+           |select
+           |refund_id,
+           |max(create_time) as max_time,
+           |min(create_time) as min_time
+           |from
+           |ods.ods_refund_process
+           |where dt= $dt
+           |group by refund_id
+           |""".stripMargin).createOrReplaceTempView("refund_process")
     } else if (timeFlag.equals("week")) {
       log.info("===========> 交易分析模块-周:" + startTime + "and" + dt)
       //零售
@@ -78,14 +91,24 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
            |from
            |dwd.dwd_dim_refund_detail
            |where dt>= $startTime and dt<=$dt and po_type is null
-           |""".stripMargin).createOrReplaceTempView("refund_orders")
+           |""".stripMargin).createOrReplaceTempView("refund_orders_tmp")
+      spark.sql(
+        s"""
+           |
+           |select
+           |refund_id,
+           |max(create_time) as max_time,
+           |min(create_time) as min_time
+           |from
+           |ods.ods_refund_process
+           |where dt>= $startTime and dt<=$dt
+           |group by refund_id
+           |""".stripMargin).createOrReplaceTempView("refund_process")
     }
     flag = timeFlag
   }
 
   override def process(): Unit = {
-
-
     //解析hdfs_page -- 需埋点
     /**
      * 支付订单数，即成交单量：--合并successful_transaction
@@ -104,7 +127,6 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
      * 用户多次打开或刷新同一个页面，浏览量累加。
      */
     spark.sqlContext.cacheTable("orders_retail")
-
     //店铺下区分平台金额
     spark.sql(
       s"""
@@ -208,9 +230,23 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
          |from
          |shop_all_money
          |""".stripMargin))
+
+
     writerMysql(shopSaleSucceedInfoDF, "shop_deal_info", flag)
 
-
+    spark.sql(
+      """
+        |select
+        |a.*,
+        |b.max_time,
+        |b.min_time
+        |from
+        |refund_orders_tmp a
+        |left join
+        |refund_process b
+        |on
+        |a.id = b.refund_id
+        |""".stripMargin).createOrReplaceTempView("refund_orders")
     spark.sqlContext.cacheTable("refund_orders")
     //全平台店铺下退款原因排行
     spark.sql(
@@ -510,16 +546,15 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
      * and 退款率
      * 退款数量/成交数量
      */
-
     //分平台
     spark.sql(
       """
         |select
         |shop_id,
         |order_type,
-        |avg(case when refund_status = 6 then
-        |unix_timestamp(modify_time,'yyyy-MM-dd HH:mm:ss') - unix_timestamp(create_time,'yyyy-MM-dd HH:mm:ss')
-        |else 0 end) as avg_time, --平均处理时间
+        |floor(avg(case when refund_status = 6 then
+        |(unix_timestamp(max_time,'yyyy-MM-dd HH:mm:ss') - unix_timestamp(min_time,'yyyy-MM-dd HH:mm:ss'))/60
+        |else 0 end)) as avg_time, --平均处理时间
         |sum(case when refund_status = 6 then cast(refund_num * refund_price as decimal(10,2)) else 0 end) as refund_money, --成功退款金额
         |count(case when refund_status = 6 then 1 end) as refund_number --成功退款笔数
         |from
@@ -532,9 +567,9 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
         |select
         |shop_id,
         |order_type,
-        |avg(case when refund_status = 6 then
-        |unix_timestamp(modify_time,'yyyy-MM-dd HH:mm:ss') - unix_timestamp(create_time,'yyyy-MM-dd HH:mm:ss')
-        |else 0 end) as avg_time, --平均处理时间
+        |floor(avg(case when refund_status = 6 then
+        |(unix_timestamp(max_time,'yyyy-MM-dd HH:mm:ss') - unix_timestamp(min_time,'yyyy-MM-dd HH:mm:ss'))/60
+        |else 0 end)) as avg_time, --平均处理时间
         |sum(case when refund_status = 6 then cast(refund_num * refund_price as decimal(10,2)) else 0 end) as refund_money, --成功退款金额
         |count(case when refund_status = 6 then 1 end) as refund_number --成功退款笔数
         |from
@@ -571,9 +606,9 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
         |select
         |shop_id,
         |'all' as order_type,
-        |avg(case when refund_status = 6 then
-        |unix_timestamp(modify_time,'yyyy-MM-dd HH:mm:ss') - unix_timestamp(create_time,'yyyy-MM-dd HH:mm:ss')
-        |end) as avg_time, --平均处理时间
+        |floor(avg(case when refund_status = 6 then
+        |(unix_timestamp(max_time,'yyyy-MM-dd HH:mm:ss') - unix_timestamp(min_time,'yyyy-MM-dd HH:mm:ss'))/60
+        |else 0 end)) as avg_time, --平均处理时间
         |sum(case when refund_status = 6 then cast(refund_num * refund_price as decimal(10,2)) end) as refund_money, --成功退款金额
         |count(case when refund_status = 6 then 1 end) as refund_number --成功退款笔数
         |from
@@ -591,7 +626,6 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
         |orders_retail
         |group by shop_id
         |""".stripMargin).createOrReplaceTempView("order_paid_tmp")
-
    val shopRefundInfo = spark.sql(
       s"""
          |select
