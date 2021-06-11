@@ -47,35 +47,6 @@ class CommonAnalysis(spark: SparkSession, dt: String, timeFlag: String) extends 
   override def process(): Unit = {
     spark.sqlContext.cacheTable("orders_merge_detail")
     /**
-     * 成交金额 =本店收款的支付金额  and 成交商品件数 and 成交单量
-     * and 支付人数
-     * ------------------------
-     * 支付订单数，即成交单量：
-     * 统计时间内(按天、周、月统计)用户付款的总订单量，
-     * 包括先款订单量(在线支付、公司转账、邮局汇款等)和货到付款订单量。
-     * 增加 sale_user_number，sale_succeed_money，order_type
-     */
-
-    //    spark.sql(
-    //      s"""
-    //         |select
-    //         |shop_id,
-    //         |order_type,
-    //         |round(sum(num),2) as sale_succeed_number,
-    //         |count(distinct order_id) as succeed_orders_number,
-    //         |count(distinct buyer_id) as sale_user_number,
-    //         |round(sum(total_money),2) as sale_succeed_money,
-    //         |$dt as dt
-    //         |from
-    //         |orders_merge_detail
-    //         |where paid = 2 and refund = 0
-    //         |group by shop_id,order_type
-    //         |""".stripMargin)
-    //      .write
-    //      .mode(SaveMode.Append)
-    //      .jdbc(StarvConfig.url,"successful_transaction",StarvConfig.properties)
-
-    /**
      * 商品省份TOP 10
      * 1.统计支付人数
      * 2.统计支付金额
@@ -83,7 +54,7 @@ class CommonAnalysis(spark: SparkSession, dt: String, timeFlag: String) extends 
      * 地势分布
      * 包含： 商家交易分析 模块
      */
-   val shopProvinceInfoDF =  spark.sql(
+    val shopProvinceInfoDF =  spark.sql(
       s"""
          |with t1 as(
          |select
@@ -112,7 +83,7 @@ class CommonAnalysis(spark: SparkSession, dt: String, timeFlag: String) extends 
          |province_name,
          |sale_user_count,
          |sale_succeed_money,
-         |cast(sale_succeed_money/total_province_money as decimal(10,2)) as sale_ratio,
+         |cast(sale_succeed_money/total_province_money as decimal(10,4)) as sale_ratio,
          |$dt as dt
          |from
          |t2
@@ -148,7 +119,7 @@ class CommonAnalysis(spark: SparkSession, dt: String, timeFlag: String) extends 
          |province_name, --省份
          |sale_user_count, --支付人数
          |sale_succeed_money, -- 支付金额
-         |cast(sale_succeed_money/total_province_money as decimal(10,2)) as sale_ratio, --支付比例
+         |cast(sale_succeed_money/total_province_money as decimal(10,4)) as sale_ratio, --支付比例
          |$dt as dt
          |from
          |t2

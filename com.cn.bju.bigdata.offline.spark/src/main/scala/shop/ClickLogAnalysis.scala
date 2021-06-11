@@ -35,7 +35,6 @@ class ClickLogAnalysis(spark: SparkSession, dt: String, timeFlag: String) extend
     }
     flag = timeFlag
   }
-
   override def process(): Unit = {
     //对 点击数据进行 扩维解析
     spark.sql(
@@ -59,8 +58,6 @@ class ClickLogAnalysis(spark: SparkSession, dt: String, timeFlag: String) extend
         |from
         |ods_click_log
         |""".stripMargin).createOrReplaceTempView("dwd_click_log")
-
-
     val frame = spark.sql(
       s"""
         |

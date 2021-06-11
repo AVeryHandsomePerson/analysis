@@ -69,6 +69,10 @@ object App {
         log.info("===========> 开始执行 流量分析模块")
         val clickLogAnalysis: ClickLogAnalysis = new ClickLogAnalysis(spark, dt, timeFlag)
         clickLogAnalysis.process()
+      case "comm" =>
+        log.info("===========> 开始执行 公共模块")
+        val commonAnalysis = new CommonAnalysis(spark, dt, timeFlag)
+        commonAnalysis.process()
       case _ =>
     }
     log.info("===========> 执行结束:" + dt)

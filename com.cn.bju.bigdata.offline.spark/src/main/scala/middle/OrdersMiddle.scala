@@ -22,7 +22,7 @@ object OrdersMiddle {
         |select
         |shop_id,
         |case when order_type = 1 then "TC" else "TB" end as order_type,
-        |case when (order_type = 6 or order_type = 8) then "PO" end as po_type,
+        |case when (order_type = 6 or order_type = 8) then "PO" end as po_type, -- 采购
         |buyer_id,
         |order_id,
         |paid,
