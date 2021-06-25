@@ -288,10 +288,9 @@ AS SELECT * FROM dwd_kafka_order;
 
 
 
-//创建 流量点击kafka 表
-CREATE TABLE dwd_kafka_click_log( \
+//创建 曝光流量 kafka 表
+CREATE TABLE dwd_kafka_page_log( \
 timeIn String, \
-timeOut String, \
 domain String, \
 url String, \
 title String,  \
@@ -302,18 +301,21 @@ cd Int64, \
 lang String, \
 shopId String,  \
 ip String,  \
+loginToken String,  \
+skuId String,  \
+itemId String,  \
+event String,  \
+userId String,  \
 province String, \
 city String,  \
 hour String,  \
-day String  \
+day String,  \
+itemName String \
 ) \
-ENGINE = Kafka('bogon2:9092,bogon:9092,bogon3:9092', 'dwd_click_log', 'group', 'JSONEachRow');
-
-
+ENGINE = Kafka('bogon2:9092,bogon:9092,bogon3:9092', 'dwd_page_log', 'buryDot', 'JSONEachRow');
 //创建本地表
-CREATE TABLE dwd_click_log_cluster on cluster bip_ck_cluster ( \
+CREATE TABLE dwd_page_log_cluster on cluster bip_ck_cluster ( \
 timeIn String, \
-timeOut String, \
 domain String, \
 url String, \
 title String,  \
@@ -324,6 +326,11 @@ cd Int64, \
 lang String, \
 shopId String,  \
 ip String,  \
+loginToken String,  \
+skuId String,  \
+itemId String,  \
+event String,  \
+userId String,  \
 province String, \
 city String,  \
 hour String,  \
@@ -334,10 +341,9 @@ PARTITION BY (day,hour) \
 ORDER BY (day,hour) \
 SETTINGS index_granularity = 8192;
 //创建分布式表
-create table dwd_click_log_all on cluster bip_ck_cluster \
+create table dwd_page_log_all on cluster bip_ck_cluster \
 ( \
 timeIn String, \
-timeOut String, \
 domain String, \
 url String, \
 title String,  \
@@ -348,13 +354,108 @@ cd Int64, \
 lang String, \
 shopId String,  \
 ip String,  \
+loginToken String,  \
+skuId String,  \
+itemId String,  \
+event String,  \
+userId String,  \
 province String, \
 city String,  \
 hour String,  \
 day String  \
 ) \
-engine = Distributed(bip_ck_cluster,default, dwd_click_log_cluster,hiveHash(shopId)) ;
-CREATE MATERIALIZED VIEW dwd_click_log_view TO dwd_click_log_all \
-AS SELECT * FROM dwd_kafka_click_log;
+engine = Distributed(bip_ck_cluster,default, dwd_page_log_cluster,hiveHash(shopId)) ;
 
 
+CREATE MATERIALIZED VIEW dwd_page_log_view TO dwd_page_log_all \
+AS SELECT * FROM dwd_kafka_page_log;
+--------------------------------------------------------
+//创建 流量明细 kafka 表
+CREATE TABLE dwd_kafka_order_detail( \
+id Int64, \
+orderId Int64, \
+itemId Int64, \
+itemName String, \
+cid Int64, \
+brandId Int64, \
+skuId Int64, \
+num decimal(24, 8), \
+costPrice decimal(16, 4), \
+itemOriginal_price decimal(10, 2), \
+paymentTotalMoney decimal(10, 2), \
+paymentPrice decimal(10, 2), \
+cutPrice String, \
+cutPriceTotal String, \
+refund String, \
+purchaseNum String, \
+dividedBalance String, \
+warehouseCode String, \
+disCommissionRate String, \
+disCommissionAmount String, \
+shopId Int64, \
+hour String,  \
+day String  \
+) \
+ENGINE = Kafka('bogon2:9092,bogon:9092,bogon3:9092', 'dwd_order_detail', 'buryDot', 'JSONEachRow');
+//创建本地表
+CREATE TABLE dwd_order_detail_cluster on cluster bip_ck_cluster ( \
+id Int64, \
+orderId Int64, \
+itemId Int64, \
+itemName String, \
+cid Int64, \
+brandId Int64, \
+skuId Int64, \
+num decimal(24, 8), \
+costPrice decimal(16, 4), \
+itemOriginal_price decimal(10, 2), \
+paymentTotalMoney decimal(10, 2), \
+paymentPrice decimal(10, 2), \
+cutPrice String, \
+cutPriceTotal String, \
+refund String, \
+purchaseNum String, \
+dividedBalance String, \
+warehouseCode String, \
+disCommissionRate String, \
+disCommissionAmount String, \
+shopId Int64, \
+hour String,  \
+day String  \
+) \
+ENGINE = MergeTree()\
+PARTITION BY (day,hour) \
+ORDER BY (day,hour) \
+SETTINGS index_granularity = 8192;
+//创建分布式表
+create table dwd_order_detail_all on cluster bip_ck_cluster \
+( \
+id Int64, \
+orderId Int64, \
+itemId Int64, \
+itemName String, \
+cid Int64, \
+brandId Int64, \
+skuId Int64, \
+num decimal(24, 8), \
+costPrice decimal(16, 4), \
+itemOriginal_price decimal(10, 2), \
+paymentTotalMoney decimal(10, 2), \
+paymentPrice decimal(10, 2), \
+cutPrice String, \
+cutPriceTotal String, \
+refund String, \
+purchaseNum String, \
+dividedBalance String, \
+warehouseCode String, \
+disCommissionRate String, \
+disCommissionAmount String, \
+shopId Int64, \
+hour String,  \
+day String  \
+) \
+engine = Distributed(bip_ck_cluster,default, dwd_order_detail_cluster,hiveHash(shopId)) ;
+
+
+CREATE MATERIALIZED VIEW dwd_order_detail_view TO dwd_order_detail_all \
+AS SELECT * FROM dwd_kafka_order_detail;

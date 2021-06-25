@@ -89,6 +89,7 @@ public class CanalClient {
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
+            log.error("=================> 连接已断开");
             //断开连接
             canalConnector.disconnect();
         }

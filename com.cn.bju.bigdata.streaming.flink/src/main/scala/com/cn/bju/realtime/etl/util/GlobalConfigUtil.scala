@@ -27,7 +27,16 @@ object GlobalConfigUtil {
   val `key.deserializer` = config.getString("key.deserializer")
   val `input.topic.cart` = config.getString("input.topic.cart")
 
-  val `output.topic.clicklog` = config.getString("output.topic.click_log")
+
+  val `mysql.server.ip` = config.getString("mysql.server.ip")
+  val `mysql.server.port` = config.getString("mysql.server.port")
+  val `mysql.server.database` = config.getString("mysql.server.database")
+  val `mysql.server.username` = config.getString("mysql.server.username")
+  val `mysql.server.password` = config.getString("mysql.server.password")
+  val `redis.server.ip` = config.getString("redis.server.ip")
+  val `redis.server.port`: String = config.getString("redis.server.port")
+
+  val `output.topic.click.pagelog` = config.getString("output.topic.click_page_log")
 
 
 }

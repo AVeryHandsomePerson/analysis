@@ -12,16 +12,34 @@ import udf.UDFRegister
  * @author ljh
  * @version 1.0
  */
-class ClientAnalysis(spark: SparkSession, dt: String, timeFlag: String)  extends WriteBase{
+class ClientAnalysis(spark: SparkSession, dt: String, timeFlag: String) extends WriteBase {
 
   val log = Logger.getLogger(App.getClass)
   var flag = "";
 
   {
     val startTime = new DateTime(DateUtils.parseDate(dt, "yyyyMMdd")).minusWeeks(1).toString("yyyyMMdd")
-
     log.info("===========> 客户分析模块-开始注册UDF函数:")
     UDFRegister.clientMapping(spark, dt)
+    // 会员数据
+    spark.sql(
+      s"""
+         |select
+         |*
+         |from
+         |dwd.dwd_user_statistics
+         |where dt = $dt
+         |""".stripMargin).createOrReplaceTempView("user_statistics")
+    // 客户
+    spark.sql(
+      s"""
+         |select
+         |*
+         |from
+         |dwd.dwd_shop_store
+         |where dt = $dt
+         |""".stripMargin).createOrReplaceTempView("shop_store")
+
     if (timeFlag.equals("day")) {
       log.info("===========> 客户分析模块-天:" + dt)
       //零售
@@ -42,6 +60,16 @@ class ClientAnalysis(spark: SparkSession, dt: String, timeFlag: String)  extends
            |dwd.dwd_dim_orders_detail
            |where dt=$dt and po_type = 'PO'
            |""".stripMargin).createOrReplaceTempView("purchase_tmp")
+      //埋点
+      spark.sql(
+        s"""
+           |select
+           |shopId,
+           |userId
+           |from
+           |dwd.dwd_click_log
+           |where dt=$dt and userId is not null and userId != ''
+           |""".stripMargin).createOrReplaceTempView("dwd_click_log")
     } else if (timeFlag.equals("week")) {
       log.info("===========> 客户分析模块-周:" + startTime + "and" + dt)
       //零售
@@ -62,6 +90,15 @@ class ClientAnalysis(spark: SparkSession, dt: String, timeFlag: String)  extends
            |dwd.dwd_dim_orders_detail
            |where dt>= $startTime and dt<=$dt and po_type = 'PO'
            |""".stripMargin).createOrReplaceTempView("purchase_tmp")
+      // 埋点
+      spark.sql(
+        s"""
+           |select
+           |*
+           |from
+           |dwd.dwd_click_log
+           |where dt>= $startTime and dt<=$dt
+           |""".stripMargin).createOrReplaceTempView("dwd_click_log")
     }
     flag = timeFlag
   }
@@ -69,6 +106,7 @@ class ClientAnalysis(spark: SparkSession, dt: String, timeFlag: String)  extends
 
   override def process(): Unit = {
     val intraDay = new DateTime(DateUtils.parseDate(dt, "yyyyMMdd")).toString("yyyy-MM-dd")
+
     /**
      * 客户数-- 店铺维度:
      * 筛选时间内，付款成功的客户数，一人多次付款成功记为一人
@@ -107,7 +145,6 @@ class ClientAnalysis(spark: SparkSession, dt: String, timeFlag: String)  extends
          |) b
          |on a.buyer_id = b.buyer_id and a.shop_id = b.shop_id
          |""".stripMargin).createOrReplaceTempView("order_tmp")
-
     //分平台
     spark.sql(
       """
@@ -162,7 +199,7 @@ class ClientAnalysis(spark: SparkSession, dt: String, timeFlag: String)  extends
         |group by shop_id
         |""".stripMargin).createOrReplaceTempView("client_order_tmp")
 
-   val shopClientAnalysisDF =  spark.sql(
+    val shopClientAnalysisDF = spark.sql(
       s"""
          |select
          |shop_id,
@@ -206,39 +243,39 @@ class ClientAnalysis(spark: SparkSession, dt: String, timeFlag: String)  extends
            |from
            |client_order_tb
            |""".stripMargin)
-    ).union(spark.sql(s"""
-                         |select
-                         |shop_id,
-                         |'all' as order_type,
-                         |user_dis_number,
-                         |present_user_dis_number,
-                         |new_user_succeed_money,
-                         |aged_user_succeed_money,
-                         |aged_user_dis_number,
-                         |new_user_dis_number,
-                         |sale_succeed_money,
-                         |round(present_user_dis_number/user_dis_number,2) as type_user_ratio,
-                         |round(new_user_dis_number/user_dis_number,2) as new_user_ratio,
-                         |round(aged_user_dis_number/user_dis_number,2) as aged_user_ratio,
-                         |case when cast(sale_succeed_money/present_user_dis_number as  decimal(10,2)) is not null
-                         |then cast(sale_succeed_money/present_user_dis_number as  decimal(10,2))
-                         |else 0 end as money, --客单价
-                         |$dt as dt
-                         |from
-                         |client_order_tmp
-                         |""".stripMargin))
+    ).union(spark.sql(
+      s"""
+         |select
+         |shop_id,
+         |'all' as order_type,
+         |user_dis_number,
+         |present_user_dis_number,
+         |new_user_succeed_money,
+         |aged_user_succeed_money,
+         |aged_user_dis_number,
+         |new_user_dis_number,
+         |sale_succeed_money,
+         |round(present_user_dis_number/user_dis_number,2) as type_user_ratio,
+         |round(new_user_dis_number/user_dis_number,2) as new_user_ratio,
+         |round(aged_user_dis_number/user_dis_number,2) as aged_user_ratio,
+         |case when cast(sale_succeed_money/present_user_dis_number as  decimal(10,2)) is not null
+         |then cast(sale_succeed_money/present_user_dis_number as  decimal(10,2))
+         |else 0 end as money, --客单价
+         |$dt as dt
+         |from
+         |client_order_tmp
+         |""".stripMargin))
     writerMysql(shopClientAnalysisDF, "shop_client_analysis", flag)
     /**
-     *
      * 访问-支付转化率 -- 需埋点
-     * * 全部成交客户-访问-支付转化率：全部支付成功客户数/店铺访客数
+     * 全部成交客户-访问-支付转化率：全部支付成功客户数/店铺访客数
      * 新成交客户-访问-支付转化率： 新成交客户数/店铺访客数中近1年无购买记录的访客数
      * 老成交客户-访问-支付转化率：老成交客户数/店铺访客数中近1年购买过的访客数
      */
     /**
      * 统计分平台客户采购额，按购买次后金额排名统计
      */
-   val shopClientSaleTopDF=  spark.sql(
+    val shopClientSaleTopDF = spark.sql(
       s"""
          |with t1 as(
          |select
@@ -335,50 +372,99 @@ class ClientAnalysis(spark: SparkSession, dt: String, timeFlag: String)  extends
            |where profit_top <=10
            |""".stripMargin)
     ).union(
-      spark.sql(s"""
-                   |with t1 as(
-                   |select
-                   |shop_id,
-                   |buyer_id,
-                   |payment_total_money,
-                   |payment_total_money - (num * cost_price) as profit
-                   |from
-                   |purchase_tmp
-                   |),
-                   |t2 as(
-                   |select
-                   |shop_id,
-                   |buyer_id,
-                   |case when round(sum(profit),2)  is null
-                   |then 0 else round(sum(profit),2) end as sale_succeed_profit,
-                   |case when round(sum(payment_total_money),2) is null
-                   |then 0 else round(sum(payment_total_money),2)
-                   |end as sale_succeed_money
-                   |from
-                   |t1
-                   |group by shop_id,buyer_id
-                   |),t3 as (
-                   |select
-                   |shop_id,
-                   |user_mapping(buyer_id) as user_name,
-                   |sale_succeed_money,
-                   |sale_succeed_profit,
-                   |row_number() over(partition by shop_id,buyer_id order by sale_succeed_money desc) as profit_top
-                   |from
-                   |t2
-                   |)
-                   |select
-                   |shop_id,
-                   |'all' as order_type,
-                   |user_name,
-                   |sale_succeed_money,
-                   |sale_succeed_profit,
-                   |$dt as dt
-                   |from
-                   |t3
-                   |where profit_top <=10
-                   |""".stripMargin)
+      spark.sql(
+        s"""
+           |with t1 as(
+           |select
+           |shop_id,
+           |buyer_id,
+           |payment_total_money,
+           |payment_total_money - (num * cost_price) as profit
+           |from
+           |purchase_tmp
+           |),
+           |t2 as(
+           |select
+           |shop_id,
+           |buyer_id,
+           |case when round(sum(profit),2)  is null
+           |then 0 else round(sum(profit),2) end as sale_succeed_profit,
+           |case when round(sum(payment_total_money),2) is null
+           |then 0 else round(sum(payment_total_money),2)
+           |end as sale_succeed_money
+           |from
+           |t1
+           |group by shop_id,buyer_id
+           |),t3 as (
+           |select
+           |shop_id,
+           |user_mapping(buyer_id) as user_name,
+           |sale_succeed_money,
+           |sale_succeed_profit,
+           |row_number() over(partition by shop_id,buyer_id order by sale_succeed_money desc) as profit_top
+           |from
+           |t2
+           |)
+           |select
+           |shop_id,
+           |'all' as order_type,
+           |user_name,
+           |sale_succeed_money,
+           |sale_succeed_profit,
+           |$dt as dt
+           |from
+           |t3
+           |where profit_top <=10
+           |""".stripMargin)
     )
     writerMysql(shopClientSaleTopDF, "shop_client_sale_top", flag)
+    // 会员信息
+    val membersDataFrame = spark.sql(
+      s"""
+         |select
+         |shop_id,
+         |count(1)  as all_user,
+         |count(case when regexp_replace(to_date(create_time),"-","") == $dt then user_id end) as new_user_number,
+         |sum(case when b.userId is not null then 1 else 0 end) as user_access_number,
+         |$dt as dt
+         |from
+         |(
+         |select
+         |shop_id,
+         |user_id,
+         |create_time
+         |from
+         |user_statistics
+         |) a
+         |left join
+         |(
+         |select
+         |shopId,
+         |userId
+         |from
+         |dwd_click_log
+         |group by shopId,userId
+         |) b
+         |on a.shop_id = b.shopId and a.user_id = b.userId
+         |group by a.shop_id
+         |""".stripMargin)
+    writerMysql(membersDataFrame, "shop_client_members_info", flag)
+    // 客户信息
+  val storeDataFrame = spark.sql(
+     s"""
+     |select
+     |shop_id,
+     |count(1)  as all_user,
+     |count(case when regexp_replace(to_date(create_time),"-","") == $dt then seller_id end) as new_user_number,
+     |0 as user_access_number,
+     |$dt as dt
+     |from
+     |shop_store
+     |group by shop_id
+     |""".stripMargin)
+    writerMysql(storeDataFrame, "shop_client_store_info", flag)
+
+
+
   }
 }

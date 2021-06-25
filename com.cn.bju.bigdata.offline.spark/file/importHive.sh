@@ -304,3 +304,32 @@ sqoop import \
 --hcatalog-partition-keys dt \
 --hcatalog-partition-values ${dt} \
 --hcatalog-storage-stanza 'stored as parquet tblproperties ("orc.compress"="SNAPPY")'
+
+echo 'usercenter.user_statistics'+${dt}
+sqoop import \
+--connect jdbc:mysql://10.2.0.92:3306/usercenter?serverTimezone=GMT%2B8 \
+--username root \
+--password 123456 \
+--query "select id,vip_name,shop_id,user_id,user_grade_id,user_grade_code,grade_name,vip_status,trade_num,trade_money,initiation_time,nearest_trade_time,cancel_order_num,exchange_goods_num,refund_money,refund_num,create_time,modify_time,exchange_order_num,refund_order_num from user_statistics where date_format(create_time,'%Y%m%d') = ${dt} and  \$CONDITIONS" \
+--driver com.mysql.jdbc.Driver \
+--split-by id \
+--hcatalog-database ods \
+--hcatalog-table ods_user_statistics \
+--hcatalog-partition-keys dt \
+--hcatalog-partition-values ${dt} \
+--hcatalog-storage-stanza 'stored as parquet tblproperties ("orc.compress"="SNAPPY")'
+
+echo 'storecenter.shop_store'+${dt}
+sqoop import \
+--connect jdbc:mysql://10.2.0.92:3306/storecenter?serverTimezone=GMT%2B8 \
+--username root \
+--password 123456 \
+--query "select id,seller_id,shop_id,store_seller_id,store_shop_id,store_shop_name,status,type,contact_person,contact_phone,postcode,fax,account_book_no,province_code,province_name,city_code,city_name,country_code,country_name,town_code,town_name,address_detail,remark,manager_user_id,manager_username,org_id,org_code,org_parent_code,create_time,create_user,modify_time,modify_user,open_time,should_receipt,real_receipt,last_receipt_time,store_level_code,store_level_name,store_type_code,store_type_name from shop_store where date_format(create_time,'%Y%m%d') = ${dt} and  \$CONDITIONS" \
+--driver com.mysql.jdbc.Driver \
+--split-by id \
+--hcatalog-database ods \
+--hcatalog-table ods_shop_store \
+--hcatalog-partition-keys dt \
+--hcatalog-partition-values ${dt} \
+--hcatalog-storage-stanza 'stored as parquet tblproperties ("orc.compress"="SNAPPY")'
+

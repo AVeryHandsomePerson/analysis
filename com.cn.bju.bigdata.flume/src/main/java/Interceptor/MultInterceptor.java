@@ -42,7 +42,6 @@ public class MultInterceptor implements Interceptor {
 
     @Override
     public List<Event> intercept(List<Event> list) {
-        logger.info("进来了");
         List<Event> stringStream = list.stream().filter(x -> new String(x.getBody(), Charsets.UTF_8).contains("bju_pick:"))
                 .map(x -> {
                     logger.info("目前数据是：" + new String(x.getBody(), Charsets.UTF_8));

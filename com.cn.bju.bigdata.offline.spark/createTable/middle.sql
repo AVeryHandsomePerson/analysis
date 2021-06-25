@@ -218,7 +218,8 @@ tblproperties ("orc.compression"="snappy");
 
 
 
-create external table dwd.dwd_user_order_locus
+create
+external table dwd.dwd_user_order_locus
 (
     shop_id    bigint comment '商铺ID',
     buyer_id   bigint comment '用户id',
@@ -232,4 +233,70 @@ dt string
 )
 stored as parquet
 location '/user/hive/warehouse/dwd.db/dwd_user_order_locus'
+tblproperties ("orc.compression"="snappy");
+
+
+create external table dwd.dwd_user_statistics
+(
+    vip_name String comment '商铺ID',
+    user_id bigint comment '用户id',
+    user_grade_code int comment '等级阶梯',
+    grade_name String comment '等级名称',
+    vip_status int comment '会员状态',
+    create_time String comment '创建时间'
+)COMMENT '会员详情记录'
+PARTITIONED BY (
+dt string,
+shop_id string
+)
+stored as parquet
+location '/user/hive/warehouse/dwd.db/dwd_user_statistics'
+tblproperties ("orc.compression"="snappy");
+
+create external table dwd.dwd_shop_store
+(
+    seller_id String comment '用户id',
+    store_seller_id bigint,
+    store_shop_id int ,
+    store_shop_name String ,
+    status int comment '关系状态 1：开启 2:停用 3：删除',
+    type int comment '关系类型：1，虚拟门店（自建）；2，真实门店',
+    create_time String comment '创建时间'
+)COMMENT '我与我的的门店'
+PARTITIONED BY (
+dt string,
+shop_id string
+)
+stored as parquet
+location '/user/hive/warehouse/dwd.db/dwd_shop_store'
+tblproperties ("orc.compression"="snappy");
+
+
+
+
+
+create external table dwd.dwd_click_log
+(
+    domain String comment '域',
+    ip bigint comment 'IP地址',
+    referrer String comment '上级url',
+    shopId String comment '店铺ID',
+    timeIn String comment '进入时间',
+    title String comment '头',
+    url String comment 'url',
+    event String comment '事件',
+    page_source String comment '渠道类型',
+    page_type String comment '事件类型',
+    loginToken String,
+    itemId String comment '店铺ID',
+    skuId String comment '商品ID',
+    userId String comment '用户ID',
+    province String comment '省',
+    city String comment '市'
+)COMMENT '埋点信息记录'
+PARTITIONED BY (
+dt string
+)
+stored as parquet
+location '/user/hive/warehouse/dwd.db/dwd_click_log'
 tblproperties ("orc.compression"="snappy");

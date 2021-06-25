@@ -120,7 +120,6 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
      * 店铺各页面的访问人数。
      * 00:00-24:00内，同一访客多次访问只被计算一次。
      */
-
     /**
      * 浏览量：-- 需埋点
      * 店铺各页面被用户访问的次数。
@@ -138,7 +137,8 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
          |count(distinct case when paid = 2 and refund = 0 then buyer_id end)  as sale_user_number, --支付人数
          |count(distinct buyer_id)  as user_number, --下单人数
          |round(sum(payment_total_money),3) as sale_money, --下单金额
-         |count(1) as sale_order_number --下单笔数
+         |count(1) as sale_order_number, --下单笔数
+         |sum(case when paid = 2 and refund = 0 then num end) as paid_num
          |from
          |orders_retail
          |where order_type='TB'
@@ -154,7 +154,8 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
          |count(distinct case when paid = 2 and refund = 0 then buyer_id end)  as sale_user_number, --支付人数
          |count(distinct buyer_id)  as user_number, --下单人数
          |round(sum(payment_total_money),3) as sale_money, --下单金额
-         |count(1) as sale_order_number --下单笔数
+         |count(1) as sale_order_number, --下单笔数
+         |sum(case when paid = 2 and refund = 0 then num end) as paid_num
          |from
          |orders_retail
          |where order_type='TC'
@@ -170,12 +171,13 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
          |count(distinct case when paid = 2 and refund = 0 then buyer_id end)  as sale_user_number, --支付人数
          |count(distinct buyer_id)  as user_number, --下单人数
          |round(sum(payment_total_money),3) as sale_money, --下单金额
-         |count(1) as sale_order_number --下单笔数
+         |count(1) as sale_order_number, --下单笔数
+         |sum(case when paid = 2 and refund = 0 then num end) as paid_num
          |from
          |orders_retail
          |group by shop_id
          |""".stripMargin).createOrReplaceTempView("shop_all_money")
-    val shopSaleSucceedInfoDF = spark.sql(
+      val shopSaleSucceedInfoDF = spark.sql(
       s"""
          |select
          |shop_id,
@@ -190,6 +192,7 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
          |case when cast(sale_succeed_money/sale_user_number as  decimal(10,2)) is not null
          |then cast(sale_succeed_money/sale_user_number as  decimal(10,2))
          |else 0 end as money, --客单价
+         |paid_num, --支付件数
          |$dt as dt
          |from
          |succeed_tb
@@ -208,6 +211,7 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
          |case when cast(sale_succeed_money/sale_user_number as  decimal(10,2)) is not null
          |then cast(sale_succeed_money/sale_user_number as  decimal(10,2))
          |else 0 end as money, --客单价
+         |paid_num, --支付件数
          |$dt as dt
          |from
          |succeed_tc
@@ -226,11 +230,11 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
          |case when cast(sale_succeed_money/sale_user_number as  decimal(10,2)) is not null
          |then cast(sale_succeed_money/sale_user_number as  decimal(10,2))
          |else 0 end as money, --客单价
+         |paid_num, --支付件数
          |$dt as dt
          |from
          |shop_all_money
          |""".stripMargin))
-
 
     writerMysql(shopSaleSucceedInfoDF, "shop_deal_info", flag)
 
@@ -271,7 +275,6 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
          |refund_orders
          |group by shop_id,refund_reason
          |""".stripMargin).createOrReplaceTempView("shop_refund_reason")
-
     //分平台
     spark.sql(
       """
@@ -299,7 +302,6 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
          |where  order_type = 'TB'
          |group by shop_id,order_type,refund_reason
          |""".stripMargin).createOrReplaceTempView("shop_refund_reason_tb")
-
     spark.sql(
       """
         |select
@@ -326,8 +328,7 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
          |where order_type = 'TC'
          |group by shop_id,order_type,refund_reason
          |""".stripMargin).createOrReplaceTempView("shop_refund_reason_tc")
-
-   val shopRefundReasonDF = spark.sql(
+    val shopRefundReasonDF = spark.sql(
       s"""
          |select
          |t1.shop_id,
@@ -384,7 +385,7 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
          |shop_refund_tc t2
          |on t1.shop_id = t2.shop_id and t1.order_type = t2.order_type
          |""".stripMargin))
-    writerMysql(shopRefundReasonDF, "shop_deal_refund_reason", flag)
+//    writerMysql(shopRefundReasonDF, "shop_deal_refund_reason", flag)
     //--------------全平台店铺下退款商品排行
     spark.sql(
       s"""
@@ -411,7 +412,6 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
         |orders_retail
         |group by shop_id,sku_id
         |""".stripMargin).createOrReplaceTempView("order_sku_paid_tmp")
-
     //--------------划分平台店铺下退款商品排行
     spark.sql(
       s"""
@@ -442,7 +442,6 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
         |where  order_type = 'TB'
         |group by shop_id,order_type,sku_id
         |""".stripMargin).createOrReplaceTempView("order_sku_paid_tb_tmp")
-
     //--------------划分平台店铺下退款商品排行
     spark.sql(
       s"""
@@ -473,8 +472,7 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
         |where   order_type = 'TC'
         |group by shop_id,order_type,sku_id
         |""".stripMargin).createOrReplaceTempView("order_sku_paid_tc_tmp")
-
-   val shopRefundSku=  spark.sql(
+    val shopRefundSku=  spark.sql(
       s"""
          |select
          |t1.shop_id,
@@ -538,7 +536,7 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
            |on t1.shop_id = t2.shop_id and t1.sku_id = t2.sku_id and t1.order_type = t2.order_type
            |""".stripMargin)
     )
-    writerMysql(shopRefundSku, "shop_deal_refund_sku", flag)
+//    writerMysql(shopRefundSku, "shop_deal_refund_sku", flag)
     /**
      * 成功退款金额
      * and 成功退款笔数
@@ -626,7 +624,7 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
         |orders_retail
         |group by shop_id
         |""".stripMargin).createOrReplaceTempView("order_paid_tmp")
-   val shopRefundInfo = spark.sql(
+    val shopRefundInfo = spark.sql(
       s"""
          |select
          |t1.shop_id,
@@ -692,6 +690,6 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
            |on t1.shop_id = t2.shop_id and t1.order_type = t2.order_type
            |""".stripMargin)
     )
-    writerMysql(shopRefundInfo, "shop_deal_refund_info", flag)
+//    writerMysql(shopRefundInfo, "shop_deal_refund_info", flag)
   }
 }

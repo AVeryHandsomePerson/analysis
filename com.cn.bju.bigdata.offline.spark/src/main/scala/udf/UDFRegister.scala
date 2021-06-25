@@ -3,7 +3,6 @@ package udf
 import ip.IPSeeker
 import org.apache.spark.sql.SparkSession
 import utils.{BroadcastUtils, TypeUtils}
-
 import java.io.File
 
 /**

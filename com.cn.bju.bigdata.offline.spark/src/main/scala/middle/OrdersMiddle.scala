@@ -2,7 +2,9 @@ package middle
 
 import org.apache.commons.lang3.time.DateUtils
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.functions.col
 import org.joda.time.DateTime
+import udf.UDFRegister
 
 object OrdersMiddle {
   def main(args: Array[String]): Unit = {
@@ -15,7 +17,8 @@ object OrdersMiddle {
       .getOrCreate()
     val dt = args(0)
     val yesterDay = new DateTime(DateUtils.parseDate(dt, "yyyyMMdd")).minusDays(1).toString("yyyyMMdd")
-
+    //udf
+    UDFRegister.FileIpMapping(spark)
     //获取订单表数据
     spark.sql(
       s"""
@@ -241,12 +244,6 @@ object OrdersMiddle {
         |where level = 1 and  dt=$dt) t1
         |on t2.parent_cid = t1.cid
         |""".stripMargin)
-
-
-
-
-//    where refund_id=315
-
     /**
      *不同店铺下的订单用户
      */
@@ -324,6 +321,101 @@ object OrdersMiddle {
          |on a.buyer_id = b.buyer_id and a.shop_id = b.shop_id
          |where  b.buyer_id is null
          |""".stripMargin)
+    // 会员表合并每日新增用户
+    spark.sql(
+      s"""
+        |insert overwrite table dwd.dwd_user_statistics
+        |select
+        |vip_name,
+        |user_id,
+        |user_grade_code,
+        |grade_name,
+        |vip_status,
+        |create_time,
+        |$dt,
+        |shop_id
+        |from
+        |ods.ods_user_statistics
+        |where dt = '$dt'
+        |union all
+        |select
+        |vip_name,
+        |user_id,
+        |user_grade_code,
+        |grade_name,
+        |vip_status,
+        |create_time,
+        |dt,
+        |shop_id
+        |from dwd.dwd_user_statistics
+        |where dt=$yesterDay
+        |""".stripMargin)
+
+    // 会员表合并每日新增用户
+    spark.sql(
+      s"""
+         |insert overwrite table dwd.dwd_shop_store
+         |select
+         |seller_id,
+         |store_seller_id,
+         |store_shop_id,
+         |store_shop_name,
+         |status,
+         |type,
+         |create_time,
+         |$dt,
+         |shop_id
+         |from
+         |ods.ods_shop_store
+         |where dt = '$dt'
+         |union all
+         |select
+         |seller_id,
+         |store_seller_id,
+         |store_shop_id,
+         |store_shop_name,
+         |status,
+         |type,
+         |create_time,
+         |$dt,
+         |shop_id
+         |from
+         |dwd.dwd_shop_store
+         |where dt = '$yesterDay'
+         |""".stripMargin)
+
+    // 埋点
+    spark.read.json(s"hdfs://bogon:8020/click_log/${dt}/")
+      .where(
+        (col("event") =!= "null") &&
+          (col("shopId") =!= "") &&
+          (col("shopId") =!= "null"))
+      .createOrReplaceTempView("ods_page_log")
+    spark.sql(
+      s"""
+        |insert overwrite table dwd.dwd_click_log
+        |select
+        |domain,
+        |ip,
+        |referrer,
+        |shopId,
+        |timeIn,
+        |title,
+        |url,
+        |event,
+        |split(event,"_")[1] as page_source,
+        |split(event,"_")[2] as page_type,
+        |loginToken,
+        |itemId,
+        |skuId,
+        |userId,
+        |split(ip_mapping(ip),',')[0] as province,
+        |split(ip_mapping(ip),',')[1] as city,
+        |$dt
+        |from
+        |ods_page_log
+        |""".stripMargin)
+
 
   }
 }

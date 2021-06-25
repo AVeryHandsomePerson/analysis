@@ -53,6 +53,7 @@ object BroadcastUtils {
          |item_name
          |from
          |dwd.dwd_sku_name
+         |where dt = $dt
          |""".stripMargin)
       .map(row => (row.getLong(0), row.getString(1)))
       .collect()

@@ -40,7 +40,7 @@ public class IPSeeker {
         b3 = new byte[3];
         try {
 //            file = new File("D:\\IdeaFile\\bju-bigdata\\analysis\\com.cn.bju.bigdata.streaming.flink\\src\\data\\ipMapping.dat");
-
+//            ipFile = new RandomAccessFile(file, "r");
             ipFile = new RandomAccessFile(file+"/ipMapping.dat", "r");
         } catch (FileNotFoundException e) {
             e.printStackTrace();

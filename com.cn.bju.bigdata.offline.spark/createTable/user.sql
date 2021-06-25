@@ -1,6 +1,8 @@
-create external table ods.ods_refund_detail
+create
+external table ods.ods_refund_detail
 
-create external table ods.ods_user
+create
+external table ods.ods_user
 (
     `id` bigint                              ,
       `platform` varchar(20)          comment '所属平台',
@@ -46,10 +48,92 @@ tblproperties ("orc.compression"="snappy");
 
 
 
-stored as PARQUET
+stored
+as PARQUET
 location '/user/hive/warehouse/ods.db/ods_user'
 tblproperties ("parquet.compression"="snappy");
 
-ALTER TABLE ods.ods_user ADD IF NOT EXISTS PARTITION (dt='20210325') location '/user/hive/warehouse/ods.db/ods_user/dt=20210325/';
+ALTER TABLE ods.ods_user
+    ADD IF NOT EXISTS PARTITION (dt='20210325') location '/user/hive/warehouse/ods.db/ods_user/dt=20210325/';
 
 
+create table ods_user_statistics
+(
+    id                 bigint,
+    vip_name           string ,
+    shop_id            bigint ,
+    user_id            bigint ,
+    user_grade_id      bigint  comment '会员等级id关联',
+    user_grade_code    int  comment '等级阶梯12345',
+    grade_name         string ,
+    vip_status         int  comment '会员状态 1正式会员 2预会员 3准会员',
+    trade_num          bigint  comment '交易笔数',
+    trade_money        decimal(16, 2)  comment '交易金额',
+    initiation_time    string comment '入会时间',
+    nearest_trade_time string comment '最近交易时间',
+    cancel_order_num   int  comment '取消订单数',
+    exchange_goods_num decimal(20, 4)  comment '换货数量',
+    refund_money       decimal(16, 2)  comment '退款金额',
+    refund_num         decimal(20, 4)  comment '退款数量',
+    create_time        string ,
+    modify_time        string ,
+    exchange_order_num int  comment '换货订单数量',
+    refund_order_num   int  comment '退款退货订单数量'
+) comment '会员统计详情表'
+PARTITIONED BY (
+  dt string
+)
+stored as parquet
+location '/user/hive/warehouse/ods.db/ods_user_statistics'
+tblproperties ("orc.compression"="snappy");
+
+create table ods.ods_shop_store
+(
+    id                bigint,
+    seller_id         bigint         ,
+    shop_id           bigint         ,
+    store_seller_id   bigint         ,
+    store_shop_id     bigint         ,
+    store_shop_name   string   ,
+    status            int             comment '关系状态 1：开启 2:停用 3：删除',
+    type              int             comment '关系类型：1，虚拟门店（自建）；2，真实门店',
+    contact_person    string   ,
+    contact_phone     string   ,
+    postcode          string   ,
+    fax               string   ,
+    account_book_no   string   ,
+    province_code     bigint         ,
+    province_name     string   ,
+    city_code         bigint         ,
+    city_name         string   ,
+    country_code      bigint         ,
+    country_name      string   ,
+    town_code         bigint         ,
+    town_name         string   ,
+    address_detail    string   ,
+    remark            string   ,
+    manager_user_id   bigint         ,
+    manager_username  string   ,
+    org_id            bigint         ,
+    org_code          string   ,
+    org_parent_code   string   ,
+    create_time       string       ,
+    create_user       bigint         ,
+    modify_time       string       ,
+    modify_user       bigint         ,
+    open_time         string       ,
+    should_receipt    decimal(10, 2)  comment '应收',
+    real_receipt      decimal(10, 2)  comment '实收',
+    last_receipt_time string        comment '最后收款时间',
+    store_level_code  varchar(255)    comment '门店级别编码(数据字典配置)',
+    store_level_name  varchar(255)    comment '门店级别名称(数据字典配置)',
+    store_type_code   varchar(255)    comment '门店类型编码',
+    store_type_name   varchar(255)    comment '门店类型名称'
+)
+comment '我与我的的门店'
+PARTITIONED BY (
+  dt string
+)
+stored as parquet
+location '/user/hive/warehouse/ods.db/ods_shop_store'
+tblproperties ("orc.compression"="snappy");
