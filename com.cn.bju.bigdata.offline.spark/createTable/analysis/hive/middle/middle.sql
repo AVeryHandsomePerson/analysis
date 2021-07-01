@@ -192,6 +192,7 @@ external table dwd.dwd_dim_refund_detail
     id                     bigint comment '主键',
     shop_id                bigint comment '店铺ID',
     order_id               string comment '订单的主键ID',
+    refund_no              bigint,
     sku_id                 bigint comment 'skuID',
     refund_num             decimal(24,8) comment '退货数量',
     refund_price           decimal(10,2) comment '退货金额',
@@ -207,7 +208,7 @@ external table dwd.dwd_dim_refund_detail
 (7)退款中',
     refund_reason          string comment '退款原因',
     po_type                string comment '销售类型  PO 为采购 空为零售',
-    order_type             string comment '平台划分 TB TC'
+    order_type             string comment '平台划分 TB '
 ) COMMENT '订单退 退货维度表'
 PARTITIONED BY (
 dt string
@@ -215,7 +216,7 @@ dt string
 stored as parquet
 location '/user/hive/warehouse/dwd.db/dwd_dim_refund_detail'
 tblproperties ("orc.compression"="snappy");
-
+alter table dwd.dwd_dim_refund_detail add columns(refund_no string);
 
 
 create
@@ -299,4 +300,26 @@ dt string
 )
 stored as parquet
 location '/user/hive/warehouse/dwd.db/dwd_click_log'
+tblproperties ("orc.compression"="snappy");
+
+
+create external table dwd.dwd_dim_outbound_bill
+(
+   id bigint,
+   shop_id bigint,
+   type bigint,
+   order_id bigint,
+   order_detail_id bigint,
+   cid bigint,
+   brand_id bigint,
+   item_id bigint,
+   sku_id bigint,
+   order_num decimal(16, 4),
+   price decimal(10, 2)
+)COMMENT '出库和出库明细中间表'
+PARTITIONED BY (
+dt string
+)
+stored as parquet
+location '/user/hive/warehouse/dwd.db/dwd_dim_outbound_bill'
 tblproperties ("orc.compression"="snappy");

@@ -105,9 +105,11 @@ deliveryRemark        String          , \
 subMchId              String, \
 eventType              String, \
 hour              String, \
-day              String \
+day              String, \
+oldNewUser       String \
 ) \
 ENGINE = Kafka('bogon2:9092,bogon:9092,bogon3:9092', 'dwd_order', 'group', 'JSONEachRow');
+
 
 
 //创建本地表
@@ -189,13 +191,16 @@ deliveryRemark        String          , \
 subMchId              String, \
 eventType              String, \
 hour              String, \
-day              String \
+day              String, \
+oldNewUser       String \
 ) \
 ENGINE = ReplicatedMergeTree('/data/clickhouse/tables/{shard}/daily', '{replica}')\
 primary key orderId \
 PARTITION BY (day,hour) \
 ORDER BY (orderId,day,hour) \
 SETTINGS index_granularity = 8192;
+//增加字段
+ALTER TABLE dwd_order_all on cluster bip_ck_cluster ADD COLUMN oldNewUser String
 
 //创建分布式表
 create table dwd_order_all on cluster bip_ck_cluster \
@@ -284,9 +289,6 @@ engine = Distributed(bip_ck_cluster,default, dwd_order,hiveHash(orderId)) ;
 //创建视图
 CREATE MATERIALIZED VIEW dwd_order_view TO dwd_order_all \
 AS SELECT * FROM dwd_kafka_order;
-
-
-
 
 //创建 曝光流量 kafka 表
 CREATE TABLE dwd_kafka_page_log( \
@@ -459,3 +461,60 @@ engine = Distributed(bip_ck_cluster,default, dwd_order_detail_cluster,hiveHash(s
 
 CREATE MATERIALIZED VIEW dwd_order_detail_view TO dwd_order_detail_all \
 AS SELECT * FROM dwd_kafka_order_detail;
+
+
+
+//创建 退款 kafka 表
+CREATE TABLE dwd_kafka_refund_apply( \
+id Int64, \
+orderId Int64, \
+shopId String, \
+orderStatus Int64, \
+refundStatus Int64, \
+refundReason String, \
+questionDescription String, \
+refundTotalMoney Double, \
+updateTime Int64, \
+hour String, \
+day String \
+) \
+ENGINE = Kafka('bogon2:9092,bogon:9092,bogon3:9092', 'dwd_refund_apply', 'buryDot', 'JSONEachRow');
+
+CREATE TABLE dwd_refund_apply_cluster on cluster bip_ck_cluster ( \
+id Int64, \
+orderId Int64, \
+shopId String, \
+orderStatus Int64, \
+refundStatus Int64, \
+refundReason String, \
+questionDescription String, \
+refundTotalMoney Double, \
+updateTime Int64, \
+hour String, \
+day String \
+) \
+ENGINE = MergeTree()\
+PARTITION BY (day,hour) \
+ORDER BY (day,hour) \
+SETTINGS index_granularity = 8192;
+
+//创建分布式表
+create table dwd_refund_apply_all on cluster bip_ck_cluster \
+( \
+id Int64, \
+orderId Int64, \
+shopId String, \
+orderStatus Int64, \
+refundStatus Int64, \
+refundReason String, \
+questionDescription String, \
+refundTotalMoney Double, \
+updateTime Int64, \
+hour String, \
+day String \
+) \
+engine = Distributed(bip_ck_cluster,default, dwd_refund_apply_cluster,hiveHash(id)) ;
+
+
+CREATE MATERIALIZED VIEW dwd_refund_apply_view TO dwd_refund_apply_all \
+AS SELECT * FROM dwd_kafka_refund_apply;

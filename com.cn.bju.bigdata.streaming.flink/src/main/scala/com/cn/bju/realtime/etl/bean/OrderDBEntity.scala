@@ -90,14 +90,15 @@ case class OrderDBEntity(@BeanProperty orderId: Long, // '订单编号',
                          @BeanProperty subMchId: String, // '子商户号'
                          @BeanProperty eventType: String, //操作类型
                          @BeanProperty hour: String,  //小时
-                         @BeanProperty day: String    //天
+                         @BeanProperty day: String,    //天
+                         @BeanProperty oldNewUser: String    //天
                         )
 
 /**
  * 创建订单的伴生对象
  */
 object OrderDBEntity {
-  def apply(rowData: CanalRowData,eventType :String): OrderDBEntity = {
+  def apply(rowData: CanalRowData,eventType :String,userType:Long): OrderDBEntity = {
     val dataTime = new DateTime(DateUtils.parseDate(rowData.getColumns.get("create_time"), "yyyy-MM-dd HH:mm:ss"))
     //解析rowData对象为Order的样例类对象
     OrderDBEntity(
@@ -178,7 +179,13 @@ object OrderDBEntity {
       rowData.getColumns.get("sub_mchId"),
       eventType,
       dataTime.toString("HH"),
-      dataTime.toString("yyyy-MM-dd")
+      dataTime.toString("yyyy-MM-dd"),
+      userType.toString
     )
   }
 }
+
+
+case class OrderUser(@BeanProperty buyerShopId: String, // 'redis的key',
+                     @BeanProperty createTime: String
+)

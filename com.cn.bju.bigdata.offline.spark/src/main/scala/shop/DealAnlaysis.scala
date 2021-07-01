@@ -16,7 +16,6 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
   val log = Logger.getLogger(App.getClass)
   var flag = "";
   {
-
     val startTime = new DateTime(DateUtils.parseDate(dt, "yyyyMMdd")).minusWeeks(1).toString("yyyyMMdd")
     log.info("===========> 交易分析模块-开始注册UDF函数:")
     UDFRegister.shopMapping(spark, dt)
@@ -33,8 +32,7 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
            |where dt=$dt and po_type is null
            |""".stripMargin).createOrReplaceTempView("orders_retail")
       //采购
-      spark.sql(
-        s"""
+      spark.sql(s"""
            |select
            |*
            |from
@@ -42,8 +40,7 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
            |where dt=$dt and po_type = 'PO'
            |""".stripMargin).createOrReplaceTempView("purchase_tmp")
       //退货
-      spark.sql(
-        s"""
+      spark.sql(s"""
            |select
            |*
            |from
@@ -63,6 +60,15 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
            |where dt= $dt
            |group by refund_id
            |""".stripMargin).createOrReplaceTempView("refund_process")
+      //出库信息
+      spark.sql(
+        s"""
+           |select
+           |*
+           |from
+           |dwd.dwd_dim_outbound_bill
+           |where dt=$dt and shop_id is not null
+           |""".stripMargin).createOrReplaceTempView("dim_outbound_bill")
     } else if (timeFlag.equals("week")) {
       log.info("===========> 交易分析模块-周:" + startTime + "and" + dt)
       //零售
@@ -109,135 +115,102 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
   }
 
   override def process(): Unit = {
-    //解析hdfs_page -- 需埋点
-    /**
-     * 支付订单数，即成交单量：--合并successful_transaction
-     * 统计时间内(按天、周、月统计)用户付款的总订单量，
-     * 包括先款订单量(在线支付、公司转账、邮局汇款等)和货到付款订单量。
-     */
-    /**
-     * 访客数：-- 需要埋点
-     * 店铺各页面的访问人数。
-     * 00:00-24:00内，同一访客多次访问只被计算一次。
-     */
-    /**
-     * 浏览量：-- 需埋点
-     * 店铺各页面被用户访问的次数。
-     * 用户多次打开或刷新同一个页面，浏览量累加。
-     */
     spark.sqlContext.cacheTable("orders_retail")
-    //店铺下区分平台金额
+    // TB 为渠道数据 先从订单表中取出来TB数据，在过滤出库单中的数据
     spark.sql(
       s"""
          |select
-         |shop_id,
-         |order_type,
-         |round(sum(case when paid = 2 and refund = 0 then payment_total_money end),3) as sale_succeed_money,
-         |count(case when paid = 2 and refund = 0 then 1 end) as orders_succeed_number, --即成交单量
-         |count(distinct case when paid = 2 and refund = 0 then buyer_id end)  as sale_user_number, --支付人数
-         |count(distinct buyer_id)  as user_number, --下单人数
-         |round(sum(payment_total_money),3) as sale_money, --下单金额
-         |count(1) as sale_order_number, --下单笔数
-         |sum(case when paid = 2 and refund = 0 then num end) as paid_num
+         |order_id,paid,refund,buyer_id,cost_price,item_id
          |from
          |orders_retail
          |where order_type='TB'
-         |group by shop_id,order_type
-         |""".stripMargin).createOrReplaceTempView("succeed_tb")
-    spark.sql(
+         |""".stripMargin).createOrReplaceTempView("order_tb")
+    //店铺下区分平台金额
+    val tbDataFrame = spark.sql(
+      s"""
+        |select
+        |a.shop_id,
+        |'TB' as order_type,
+        |cast (sum(case when paid = 2 and refund = 0 then order_num * price end) as  decimal(10,2)) as sale_succeed_money, --订单支付成功金额
+        |count(case when paid = 2 and refund = 0 then 1 end) as orders_succeed_number, --即成交单量
+        |cast(sum(cost_price * order_num) as  decimal(10,2) ) as income_money, --收入金额
+        |cast(sum(order_num * price) as  decimal(10,2)) as sale_money, --下单金额
+        |count(1) as sale_order_number, --下单笔数
+        |sum(case when paid = 2 and refund = 0 then order_num end) as paid_num,  --支付件数
+        |cast(count(distinct case when paid = 2 and refund = 0 then buyer_id end) as  decimal(10,2))  as sale_user_number, --支付人数
+        |count(distinct buyer_id)  as user_number, --下单人数
+        |$dt as dt
+        |from
+        |(
+        |select
+        |*
+        |from
+        |dim_outbound_bill
+        |where type != 9 and type != 10
+        |) a
+        |inner join
+        |order_tb b
+        |on a.order_id = b.order_id and a.item_id = b.item_id
+        |group by shop_id
+        |""".stripMargin)
+    tbDataFrame.createOrReplaceTempView("succeed_tb")
+    val tcDataFrame = spark.sql(
       s"""
          |select
          |shop_id,
-         |order_type,
-         |round(sum(case when paid = 2 and refund = 0 then payment_total_money end),3) as sale_succeed_money,
+         |'TC' as order_type,
+         |cast(sum(case when paid = 2 and refund = 0 then payment_total_money end) as  decimal(10,2)) as sale_succeed_money,
          |count(case when paid = 2 and refund = 0 then 1 end) as orders_succeed_number, --即成交单量
-         |count(distinct case when paid = 2 and refund = 0 then buyer_id end)  as sale_user_number, --支付人数
-         |count(distinct buyer_id)  as user_number, --下单人数
-         |round(sum(payment_total_money),3) as sale_money, --下单金额
+         |cast(sum((item_original_price - cost_price) * num) as  decimal(10,2)) as income_money, --收入金额
+         |cast(sum(payment_total_money) as  decimal(10,2)) as sale_money, --下单金额
          |count(1) as sale_order_number, --下单笔数
-         |sum(case when paid = 2 and refund = 0 then num end) as paid_num
+         |sum(case when paid = 2 and refund = 0 then num end) as paid_num,
+         |cast(count(distinct case when paid = 2 and refund = 0 then buyer_id end) as  decimal(10,2))  as sale_user_number, --支付人数
+         |count(distinct buyer_id)  as user_number, --下单人数
+         |$dt as dt
          |from
          |orders_retail
          |where order_type='TC'
-         |group by shop_id,order_type
-         |""".stripMargin).createOrReplaceTempView("succeed_tc")
+         |group by shop_id
+         |""".stripMargin)
+    tcDataFrame.createOrReplaceTempView("succeed_tc")
     //店铺下全平台金额
-    spark.sql(
+    val allDataFrame = spark.sql(
       s"""
          |select
+         |a.shop_id,
+         |'all' as source_type,
+         |if(b.sale_succeed_money is null,0,b.sale_succeed_money) + if(c.sale_succeed_money is null,0,c.sale_succeed_money) as sale_succeed_money,
+         |if(b.orders_succeed_number is null,0,b.orders_succeed_number) + if(c.orders_succeed_number is null,0,c.orders_succeed_number) as orders_succeed_number,
+         |if(b.income_money is null,0,b.income_money) + if(c.income_money is null,0,c.income_money) as income_money,
+         |if(b.sale_money is null,0,b.sale_money) + if(c.sale_money is null,0,c.sale_money) as sale_money,
+         |if(b.sale_order_number is null,0,b.sale_order_number) + if(c.sale_order_number is null,0,c.sale_order_number) as sale_order_number,
+         |if(b.paid_num is null,0,b.paid_num) + if(c.paid_num is null,0,c.paid_num) as paid_num,
+         |a.sale_user_number, --支付人数
+         |a.user_number, --下单人数
+         |$dt as dt
+         |from
+         |(
+         |select
          |shop_id,
-         |round(sum(case when paid = 2 and refund = 0 then payment_total_money end),3) as sale_succeed_money,
-         |count(case when paid = 2 and refund = 0 then 1 end) as orders_succeed_number, --即成交单量
          |count(distinct case when paid = 2 and refund = 0 then buyer_id end)  as sale_user_number, --支付人数
-         |count(distinct buyer_id)  as user_number, --下单人数
-         |round(sum(payment_total_money),3) as sale_money, --下单金额
-         |count(1) as sale_order_number, --下单笔数
-         |sum(case when paid = 2 and refund = 0 then num end) as paid_num
+         |count(distinct buyer_id)  as user_number --下单人数
          |from
          |orders_retail
          |group by shop_id
-         |""".stripMargin).createOrReplaceTempView("shop_all_money")
-      val shopSaleSucceedInfoDF = spark.sql(
-      s"""
-         |select
-         |shop_id,
-         |order_type,
-         |user_number, --下单人数
-         |sale_money, --下单金额
-         |sale_user_number, --成交客户数
-         |orders_succeed_number, --成交单量
-         |sale_order_number, --下单笔数
-         |case when sale_succeed_money is null then 0 else sale_succeed_money
-         |end as sale_succeed_money, --成交金额
-         |case when cast(sale_succeed_money/sale_user_number as  decimal(10,2)) is not null
-         |then cast(sale_succeed_money/sale_user_number as  decimal(10,2))
-         |else 0 end as money, --客单价
-         |paid_num, --支付件数
-         |$dt as dt
-         |from
-         |succeed_tb
-         |""".stripMargin).union(spark.sql(
-      s"""
-         |select
-         |shop_id,
-         |order_type,
-         |user_number, --下单人数
-         |sale_money, --下单金额
-         |sale_user_number, --成交客户数
-         |orders_succeed_number, --成交单量
-         |sale_order_number, --下单笔数
-         |case when sale_succeed_money is null then 0 else sale_succeed_money
-         |end as sale_succeed_money, --成交金额
-         |case when cast(sale_succeed_money/sale_user_number as  decimal(10,2)) is not null
-         |then cast(sale_succeed_money/sale_user_number as  decimal(10,2))
-         |else 0 end as money, --客单价
-         |paid_num, --支付件数
-         |$dt as dt
-         |from
-         |succeed_tc
-         |""".stripMargin)).union(spark.sql(
-      s"""
-         |select
-         |shop_id,
-         |'all' as source_type,
-         |user_number, --下单人数
-         |sale_money, --下单金额
-         |sale_user_number, --成交客户数
-         |orders_succeed_number, --成交单量
-         |sale_order_number, --下单笔数
-         |case when sale_succeed_money is null then 0 else sale_succeed_money
-         |end as sale_succeed_money, --成交金额
-         |case when cast(sale_succeed_money/sale_user_number as  decimal(10,2)) is not null
-         |then cast(sale_succeed_money/sale_user_number as  decimal(10,2))
-         |else 0 end as money, --客单价
-         |paid_num, --支付件数
-         |$dt as dt
-         |from
-         |shop_all_money
-         |""".stripMargin))
-
+         |) a
+         |left join
+         |succeed_tc b
+         |on
+         |a.shop_id = b.shop_id
+         |left join
+         |succeed_tb c
+         |on
+         |a.shop_id = c.shop_id
+         |""".stripMargin)
+    val shopSaleSucceedInfoDF = tbDataFrame.union(tcDataFrame).union(allDataFrame)
     writerMysql(shopSaleSucceedInfoDF, "shop_deal_info", flag)
-
+    // ---------------------------------退款
     spark.sql(
       """
         |select
@@ -385,7 +358,7 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
          |shop_refund_tc t2
          |on t1.shop_id = t2.shop_id and t1.order_type = t2.order_type
          |""".stripMargin))
-//    writerMysql(shopRefundReasonDF, "shop_deal_refund_reason", flag)
+    writerMysql(shopRefundReasonDF, "shop_deal_refund_reason", flag)
     //--------------全平台店铺下退款商品排行
     spark.sql(
       s"""
@@ -472,7 +445,7 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
         |where   order_type = 'TC'
         |group by shop_id,order_type,sku_id
         |""".stripMargin).createOrReplaceTempView("order_sku_paid_tc_tmp")
-    val shopRefundSku=  spark.sql(
+    val shopRefundSku = spark.sql(
       s"""
          |select
          |t1.shop_id,
@@ -536,7 +509,7 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
            |on t1.shop_id = t2.shop_id and t1.sku_id = t2.sku_id and t1.order_type = t2.order_type
            |""".stripMargin)
     )
-//    writerMysql(shopRefundSku, "shop_deal_refund_sku", flag)
+    writerMysql(shopRefundSku, "shop_deal_refund_sku", flag)
     /**
      * 成功退款金额
      * and 成功退款笔数
@@ -561,23 +534,37 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
         |group by shop_id,order_type
         |""".stripMargin).createOrReplaceTempView("refund_tc")
     spark.sql(
-      """
-        |select
-        |shop_id,
-        |order_type,
-        |floor(avg(case when refund_status = 6 then
-        |(unix_timestamp(max_time,'yyyy-MM-dd HH:mm:ss') - unix_timestamp(min_time,'yyyy-MM-dd HH:mm:ss'))/60
-        |else 0 end)) as avg_time, --平均处理时间
-        |sum(case when refund_status = 6 then cast(refund_num * refund_price as decimal(10,2)) else 0 end) as refund_money, --成功退款金额
-        |count(case when refund_status = 6 then 1 end) as refund_number --成功退款笔数
-        |from
-        |refund_orders
-        |where   order_type = 'TB'
-        |group by shop_id,order_type
-        |""".stripMargin).createOrReplaceTempView("refund_tb")
+      s"""
+         |select
+         |a.shop_id,
+         |'TB' as order_type,
+         |floor(avg(case when a.refund_status = 6 then
+         |(unix_timestamp(a.max_time,'yyyy-MM-dd HH:mm:ss') - unix_timestamp(a.min_time,'yyyy-MM-dd HH:mm:ss'))/60
+         |else 0 end)) as avg_time, --平均处理时间
+         |sum(case when refund_status = 6 then cast(refund_num * refund_price as decimal(10,2)) else 0 end) as refund_money, --成功退款金额
+         |count(case when refund_status = 6 then 1 end) as refund_number --成功退款笔数
+         |from
+         |(
+         |select
+         |*
+         |from
+         |refund_orders
+         |where order_type = 'TB'
+         |) a
+         |left join
+         |(
+         |select
+         |*
+         |from
+         |dim_outbound_bill
+         |where type = 9 or type = 10
+         |) b
+         |on a.refund_no = b.order_id
+         |where b.id is not null
+         |group by a.shop_id
+         |""".stripMargin).createOrReplaceTempView("refund_tb")
     //获取商铺不同平台下成交订单量和成交钱数，订单中间表获取
-    spark.sql(
-      """
+    spark.sql("""
         |select
         |shop_id,
         |order_type,
@@ -587,16 +574,29 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
         |where  order_type = 'TC'
         |group by shop_id,order_type
         |""".stripMargin).createOrReplaceTempView("order_paid_tc_tmp")
-    spark.sql(
-      """
+    spark.sql("""
         |select
-        |shop_id,
-        |order_type,
+        |a.shop_id,
+        |'TB' as order_type,
         |count(case when paid = 2  then 1 end) as orders_succeed_number --支付单数
         |from
+        |(
+        |select
+        |* from
         |orders_retail
         |where  order_type = 'TB'
-        |group by shop_id,order_type
+        |) a
+        |left join
+        |(
+        |select
+        |*
+        |from
+        |dim_outbound_bill
+        |where type != 9 and type != 10
+        |) b
+        |on a.order_id = b.order_id and a.item_id = b.item_id
+        |where b.order_id is not null
+        |group by a.shop_id
         |""".stripMargin).createOrReplaceTempView("order_paid_tb_tmp")
     //全平台
     spark.sql(
@@ -690,6 +690,25 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
            |on t1.shop_id = t2.shop_id and t1.order_type = t2.order_type
            |""".stripMargin)
     )
-//    writerMysql(shopRefundInfo, "shop_deal_refund_info", flag)
+    writerMysql(shopRefundInfo, "shop_deal_refund_info", flag)
   }
 }
+
+
+
+//    spark.sql(
+//      """
+//        |select
+//        |shop_id,
+//        |order_type,
+//        |floor(avg(case when refund_status = 6 then
+//        |(unix_timestamp(max_time,'yyyy-MM-dd HH:mm:ss') - unix_timestamp(min_time,'yyyy-MM-dd HH:mm:ss'))/60
+//        |else 0 end)) as avg_time, --平均处理时间
+//        |sum(case when refund_status = 6 then cast(refund_num * refund_price as decimal(10,2)) else 0 end) as refund_money, --成功退款金额
+//        |count(case when refund_status = 6 then 1 end) as refund_number --成功退款笔数
+//        |from
+//        |refund_orders
+//        |where   order_type = 'TB'
+//        |group by shop_id,order_type
+//        |""".stripMargin).createOrReplaceTempView("refund_tb")
+// 关联出库表，过滤出出库表中退货的 信息

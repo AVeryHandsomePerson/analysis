@@ -92,15 +92,6 @@ create table shop_goods_profit_top
 ) comment '商品利润TOP 10' charset = utf8;
 
 
-create table shop_goods_purchase_type
-(
-    shop_id bigint null,
-    name    varchar(255) null,
-    pu_type bigint comment '类型',
-    pu_num  double comment '采购数量',
-    dt      date not null
-) comment '商品采购数据统计' charset = utf8;
-
 create table shop_goods_purchase_info
 (
     id       integer PRIMARY KEY AUTO_INCREMENT comment 'id',

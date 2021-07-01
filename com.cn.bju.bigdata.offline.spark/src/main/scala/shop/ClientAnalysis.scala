@@ -266,6 +266,7 @@ class ClientAnalysis(spark: SparkSession, dt: String, timeFlag: String) extends 
          |client_order_tmp
          |""".stripMargin))
     writerMysql(shopClientAnalysisDF, "shop_client_analysis", flag)
+
     /**
      * 访问-支付转化率 -- 需埋点
      * 全部成交客户-访问-支付转化率：全部支付成功客户数/店铺访客数
@@ -450,20 +451,19 @@ class ClientAnalysis(spark: SparkSession, dt: String, timeFlag: String) extends 
          |""".stripMargin)
     writerMysql(membersDataFrame, "shop_client_members_info", flag)
     // 客户信息
-  val storeDataFrame = spark.sql(
-     s"""
-     |select
-     |shop_id,
-     |count(1)  as all_user,
-     |count(case when regexp_replace(to_date(create_time),"-","") == $dt then seller_id end) as new_user_number,
-     |0 as user_access_number,
-     |$dt as dt
-     |from
-     |shop_store
-     |group by shop_id
-     |""".stripMargin)
+    val storeDataFrame = spark.sql(
+      s"""
+         |select
+         |shop_id,
+         |count(1)  as all_user,
+         |count(case when regexp_replace(to_date(create_time),"-","") == $dt then seller_id end) as new_user_number,
+         |0 as user_access_number,
+         |$dt as dt
+         |from
+         |shop_store
+         |group by shop_id
+         |""".stripMargin)
     writerMysql(storeDataFrame, "shop_client_store_info", flag)
-
 
 
   }

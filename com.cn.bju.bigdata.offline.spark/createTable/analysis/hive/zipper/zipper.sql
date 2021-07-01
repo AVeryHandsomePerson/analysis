@@ -727,3 +727,216 @@ case
 '9999-12-31' as end_zipper_time,
 date_format(create_time, 'yyyyMMdd')
 from ods.ods_refund_apply
+
+---------------------------出库拉链表
+create
+external table dwd.fact_outbound_bill
+(
+  id                  bigint,
+    type                int      comment '出库单类型 1:销售出库 2：采购退货出库 3:手工创建 4:分切单原料出库
+5:分切成品出库 6:调拨出库 7:虚拟销售出库 8：虚拟采购出库  9:虚拟销售退货出库 10：虚拟采购退货出库 11: 卷筒出库',
+    order_id            bigint   comment '订单号',
+    shop_id             bigint   comment '店铺ID',
+    shop_name           String   comment '店铺名称',
+    buyer_shop_id       bigint   comment '买方店铺ID',
+    buyer_shop_name     String   comment '买方店铺名称',
+    status              int      comment '状态 0:待拣货 1：待出库 2：待审核 3：审核拒绝 4：待发运 5：已完成 6：已关闭 7:拒收待审核 8：拒收审核通过
+ 9 拒收已入库 10 差异签收待审核 11差异签收审核通过 12差异签收审核驳回',
+    sign_status         int      comment '签收状态 0：未签收 1：已签收 2：已拒收',
+    sign_time           String   comment '签收日期',
+    sign_shop_id        bigint   comment '签收店铺ID',
+    sign_user_id        bigint   comment '签收用户ID',
+    real_sign_user      String   comment '实际签收人',
+    sign_remark         String   comment '签收意见',
+    order_amount        decimal(10, 2)  comment '订单金额',
+    total_amount        decimal(16, 2)  comment '总金额',
+    create_time         String   comment '创建时间',
+    audit_time          String   comment '审核时间',
+    audit_user_id       bigint   comment '审核人ID',
+    audit_user_name     String   comment '审核人名称',
+    audit_remark        String   comment '审核备注',
+    outbound_time       String   comment '出库日期',
+    modify_time         String   comment '修改时间',
+    modify_user         bigint   comment '修改人',
+    warehouse_code      String   comment '仓库编码',
+    warehouse_name      String   comment '仓库名称',
+    manage_user_id      bigint   comment '业务员ID',
+    manage_username     String   comment '业务员名称',
+    org_code            String   comment '归属组织机构编码',
+    org_parent_code     String   comment '归属上级组织机构编码',
+    outbound_remark     String   comment '出库备注',
+    operate_user_id     bigint   comment '操作人用户id',
+    operate_user_name   String   comment '操作人名称',
+    operate_time        String   comment '操作时间',
+    self_pick_flag      int      comment '0:非自提订单 1:自提订单 ',
+    license_plate_num   String   comment '车牌号',
+    driver_id           bigint   comment '司机ID',
+    driver_name         String   comment '司机名称',
+    logistics_code      String   comment '物流商ID,对应字典表code',
+    logistics_no        String   comment '物流单号，多个单号就用逗号隔开',
+    freight_label_num   int      comment '货签数',
+    cut_order_id        String   comment '分切单编码',
+    consignee_name      String   comment '收货人姓名',
+    consignee_mobile    String   comment '收货人手机',
+    consignee_mail      String   comment '收货人邮箱',
+    province_code       bigint   comment '省ID',
+    city_code           bigint   comment '市ID',
+    country_code        bigint   comment '县区ID',
+    town_code           bigint         ,
+    province_name       String   comment '省名称',
+    city_name           String   comment '市名称',
+    country_name        String   comment '区名称',
+    town_name           String   ,
+    detail_address      String   comment '详细地址',
+    expect_receive_time String   comment '期望收货时间',
+    reclaim_status      int      comment '回收状态：1，未回收；2，已回收',
+    sign_voucher_pic    String   comment '签收凭证',
+    in_warehouse_code   String   comment '入库仓库编码',
+    in_warehouse_name   String   comment '入库仓库名称',
+    cut_price_total     decimal(16, 2)  comment '分切总价',
+    other_fee           decimal(16, 2)  comment '其他费用',
+   create_zipper_time     string comment '有效开始时间',
+   end_zipper_time        string comment '有效结束时间'
+)
+comment '出库表'
+PARTITIONED BY (
+  dt string
+)
+stored as parquet
+location '/user/hive/warehouse/dwd.db/fact_outbound_bill'
+tblproperties ("orc.compression"="snappy");
+
+insert overwrite table dwd.fact_outbound_bill
+select
+    id,
+    type,
+    order_id,
+    shop_id,
+    shop_name,
+    buyer_shop_id,
+    buyer_shop_name,
+    status,
+    sign_status,
+    sign_time,
+    sign_shop_id,
+    sign_user_id,
+    real_sign_user,
+    sign_remark,
+    order_amount,
+    total_amount,
+    create_time,
+    audit_time,
+    audit_user_id,
+    audit_user_name,
+    audit_remark,
+    outbound_time,
+    modify_time,
+    modify_user,
+    warehouse_code,
+    warehouse_name,
+    manage_user_id,
+    manage_username,
+    org_code,
+    org_parent_code,
+    outbound_remark,
+    operate_user_id,
+    operate_user_name,
+    operate_time,
+    self_pick_flag,
+    license_plate_num,
+    driver_id,
+    driver_name,
+    logistics_code,
+    logistics_no,
+    freight_label_num,
+    cut_order_id,
+    consignee_name,
+    consignee_mobile,
+    consignee_mail,
+    province_code,
+    city_code,
+    country_code,
+    town_code,
+    province_name,
+    city_name,
+    country_name,
+    town_name,
+    detail_address,
+    expect_receive_time,
+    reclaim_status,
+    sign_voucher_pic,
+    in_warehouse_code,
+    in_warehouse_name,
+    cut_price_total,
+    other_fee,
+    to_date(create_time) as create_zipper_time,
+    '9999-12-31' as end_zipper_time,
+    date_format(create_time, 'yyyyMMdd')
+from ods.ods_outbound_bill where dt = "20210629"  and create_time not like '2021-06-30%';
+
+
+-----------------------------------自提点
+create
+external table dwd.fact_orders_self_pick
+(
+    id             bigint,
+    order_id       bigint comment '订单号',
+    verification   string comment '核销码',
+    pick_id        bigint comment '网点编码',
+    pick_name      string comment '网点名称',
+    province_code  bigint,
+    province_name  string,
+    city_code      bigint,
+    city_name      string,
+    country_code   bigint,
+    country_name   string,
+    town_code      bigint,
+    town_name      string,
+    detail_address string,
+    contact_phone  string comment '联系电话',
+    contact_name   string comment '联系人',
+    confirm_time   string comment '核销时间',
+    confirm_user   bigint comment '核销人',
+    create_time    string,
+    create_user    bigint,
+    modify_time    string,
+    modify_user    bigint,
+    create_zipper_time     string comment '有效开始时间',
+    end_zipper_time        string comment '有效结束时间'
+)
+comment '订单自提信息-拉链表'
+PARTITIONED BY (
+  dt string
+)
+stored as parquet
+location '/user/hive/warehouse/dwd.db/fact_orders_self_pick'
+tblproperties ("orc.compression"="snappy");
+
+insert overwrite table dwd.fact_orders_self_pick
+select
+id,
+order_id,
+verification,
+pick_id,
+pick_name,
+province_code,
+province_name,
+city_code,
+city_name,
+country_code,
+country_name,
+town_code,
+town_name,
+detail_address,
+contact_phone,
+contact_name,
+confirm_time,
+confirm_user,
+create_time,
+create_user,
+modify_time,
+modify_user,
+to_date(create_time) as create_zipper_time,
+'9999-12-31' as end_zipper_time,
+date_format(create_time, 'yyyyMMdd')
+from ods.ods_orders_self_pick

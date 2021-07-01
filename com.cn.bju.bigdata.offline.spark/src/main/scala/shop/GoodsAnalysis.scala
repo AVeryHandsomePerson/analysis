@@ -88,7 +88,6 @@ class GoodsAnalysis(spark: SparkSession, dt: String, timeFlag: String) extends W
      * 成交金额
      * 商品成交转化率 --需要埋点
      * 统计在架商品数据
-     *
      */
     spark.sql(
       s"""
@@ -148,19 +147,6 @@ class GoodsAnalysis(spark: SparkSession, dt: String, timeFlag: String) extends W
      * 商品曝光率 --需要埋点
      * 有流量的商品的品种数占
      * 上架商品数量的比例
-     */
-    /**
-     * 商品浏览量
-     */
-    /**
-     * 商品关注数
-     *
-     */
-    /**
-     * 加购商品数
-     */
-    /**
-     * 加购商品件数
      */
     /**
      * 商品成交转化率   --需要埋点

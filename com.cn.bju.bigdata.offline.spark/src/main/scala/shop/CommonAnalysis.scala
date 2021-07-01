@@ -54,7 +54,7 @@ class CommonAnalysis(spark: SparkSession, dt: String, timeFlag: String) extends 
      * 地势分布
      * 包含： 商家交易分析 模块
      */
-    val shopProvinceInfoDF =  spark.sql(
+    val shopProvinceInfoDF = spark.sql(
       s"""
          |with t1 as(
          |select

@@ -16,10 +16,18 @@ object demo {
      val dt = "1622457229000"
 
 //    DateUtils.timeStampToDate()
-//    val dataTime = new DateTime(DateUtils.parseDate(dt, "yyyy-MM-dd HH:mm:ss"))
+    val dataTime = new DateTime(DateUtils.parseDate("2019-06-29 15:31:33", "yyyy-MM-dd HH:mm:ss"))
+    val dataTime1 = new DateTime(DateUtils.parseDate("2019-06-29 15:31:33", "yyyy-MM-dd HH:mm:ss"))
+    println(dataTime.getMillis)
+    println(dataTime1.getMillis)
+    println(((dataTime.getMillis/1000-dataTime1.getMillis/1000)/3600)/24)
 //    dataTime
 //    val sdf: SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
 //    println(sdf.format(new Date(dt.toLong)))// 时间戳转换日期
+
+
+
+
   }
 
 }

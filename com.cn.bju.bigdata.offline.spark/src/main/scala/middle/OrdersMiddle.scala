@@ -140,6 +140,7 @@ object OrdersMiddle {
         |select
         |id,
         |shop_id,
+        |refund_no,
         |case when type = 1 then "TC" else "TB" end as order_type,
         |case when (type = 2 or type = 4) then "PO" end as po_type,
         |order_id,
@@ -173,6 +174,7 @@ object OrdersMiddle {
         |a.id,
         |b.shop_id,
         |a.order_id,
+        |b.refund_no,
         |a.sku_id,
         |a.refund_num,
         |a.refund_price,
@@ -383,6 +385,79 @@ object OrdersMiddle {
          |dwd.dwd_shop_store
          |where dt = '$yesterDay'
          |""".stripMargin)
+
+    //仓库明细表 关联 仓库表
+    spark.sql(
+      s"""
+        |insert overwrite table dwd.dwd_dim_outbound_bill
+        |select
+        |b.id,
+        |b.shop_id,
+        |b.type,
+        |a.order_id,
+        |a.order_detail_id,
+        |a.cid,
+        |a.brand_id,
+        |a.item_id,
+        |a.sku_id,
+        |a.order_num,
+        |a.price,
+        |$dt as dt
+        |from
+        |(select
+        |*
+        |from
+        |ods.ods_outbound_bill_detail
+        |where dt=$dt
+        |) a
+        |left join
+        |(
+        |select
+        |*
+        |from
+        |dwd.fact_outbound_bill
+        |where dt=$dt
+        |) b
+        |on
+        |a.outbound_bill_id = b.id
+        |""".stripMargin)
+
+
+
+    spark.sql(
+      s"""
+         |select
+         |b.id,
+         |b.shop_id,
+         |b.type,
+         |a.order_id,
+         |a.order_detail_id,
+         |a.cid,
+         |a.brand_id,
+         |a.item_id,
+         |a.sku_id,
+         |a.order_num,
+         |a.price,
+         |$dt as dt
+         |from
+         |(select
+         |*
+         |from
+         |ods.ods_outbound_bill_detail
+         |where dt=$dt
+         |) a,
+         |(
+         |select
+         |*
+         |from
+         |dwd.fact_outbound_bill
+         |where dt=$dt
+         |) b
+         |where
+         |a.outbound_bill_id = b.id
+         |""".stripMargin)
+
+
 
     // 埋点
     spark.read.json(s"hdfs://bogon:8020/click_log/${dt}/")

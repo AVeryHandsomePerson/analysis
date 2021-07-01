@@ -198,7 +198,7 @@ sqoop import \
 --connect jdbc:mysql://10.2.0.92:3306/storecenter?serverTimezone=GMT%2B8 \
 --username root \
 --password 123456 \
---query "select id,type,order_id,shop_id,shop_name,buyer_shop_id,buyer_shop_name,status,sign_status,sign_time,sign_shop_id,sign_user_id,real_sign_user,sign_remark,order_amount,create_time,audit_time,audit_user_id,audit_user_name,audit_remark,outbound_time,modify_time,modify_user,warehouse_code,warehouse_name,manage_user_id,manage_username,org_code,org_parent_code,outbound_remark,operate_user_id,operate_user_name,operate_time,license_plate_num,driver_id,driver_name,logistics_code,logistics_no,freight_label_num,cut_order_id,consignee_name,consignee_mobile,consignee_mail,province_code,city_code,country_code,town_code,province_name,city_name,country_name,town_name,detail_address,expect_receive_time,reclaim_status from outbound_bill where  \$CONDITIONS" \
+--query "select id,type,order_id,shop_id,shop_name,buyer_shop_id,buyer_shop_name,status,sign_status,sign_time,sign_shop_id,sign_user_id,real_sign_user,sign_remark,order_amount,total_amount,create_time,audit_time,audit_user_id,audit_user_name,audit_remark,outbound_time,modify_time,modify_user,warehouse_code,warehouse_name,manage_user_id,manage_username,org_code,org_parent_code,outbound_remark,operate_user_id,operate_user_name,operate_time,self_pick_flag,license_plate_num,driver_id,driver_name,logistics_code,logistics_no,freight_label_num,cut_order_id,consignee_name,consignee_mobile,consignee_mail,province_code,city_code,country_code,town_code,province_name,city_name,country_name,town_name,detail_address,expect_receive_time,reclaim_status,sign_voucher_pic,in_warehouse_code,in_warehouse_name,cut_price_total,other_fee from outbound_bill where (date_format(create_time,'%Y%m%d') = ${dt} or date_format(modify_time,'%Y%m%d') = ${dt}) and \$CONDITIONS" \
 --driver com.mysql.jdbc.Driver \
 --split-by id \
 --hcatalog-database ods \
@@ -207,12 +207,14 @@ sqoop import \
 --hcatalog-partition-values ${dt} \
 --hcatalog-storage-stanza 'stored as parquet tblproperties ("orc.compress"="SNAPPY")'
 
+
+
 echo 'storecenter.outbound_bill_detail'+${dt}
 sqoop import \
 --connect jdbc:mysql://10.2.0.92:3306/storecenter?serverTimezone=GMT%2B8 \
 --username root \
 --password 123456 \
---query "select id,outbound_bill_id,order_id,order_detail_id,cid,brand_id,item_id,sku_id,item_name,sku_pic_url,sku_sale_attr,shop_sku_code,order_num,price,outbound_num,real_outbound_num,sign_num,outbound_reel,real_outbound_reel,sign_reel,piece_weight,total_weight,create_time from outbound_bill_detail where  \$CONDITIONS" \
+--query "select id,outbound_bill_id,order_id,order_detail_id,cid,brand_id,item_id,sku_id,item_name,sku_pic_url,sku_sale_attr,shop_sku_code,order_num,price,cut_price_total,outbound_num,real_outbound_num,sign_num,outbound_reel,real_outbound_reel,sign_reel,piece_weight,total_weight,piece_sheet_num,total_sheet_num,cut_order_id,sku_index,sku_count,cut_price,cut_price_unit,create_time from outbound_bill_detail where date_format(create_time,'%Y%m%d') = ${dt} and \$CONDITIONS" \
 --driver com.mysql.jdbc.Driver \
 --split-by id \
 --hcatalog-database ods \
@@ -333,3 +335,18 @@ sqoop import \
 --hcatalog-partition-values ${dt} \
 --hcatalog-storage-stanza 'stored as parquet tblproperties ("orc.compress"="SNAPPY")'
 
+echo 'tradecenter.orders_self_pick'+${dt}
+sqoop import \
+--connect jdbc:mysql://10.2.0.92:3306/tradecenter?serverTimezone=GMT%2B8 \
+--username root \
+--password 123456 \
+--query "select id,order_id,verification,pick_id,pick_name,province_code,province_name,city_code,city_name,country_code,country_name,town_code,town_name,detail_address,contact_phone,contact_name,confirm_time,confirm_user,create_time,create_user,modify_time,modify_user from orders_self_pick where  \$CONDITIONS" \
+--driver com.mysql.jdbc.Driver \
+--split-by id \
+--hcatalog-database ods \
+--hcatalog-table ods_orders_self_pick \
+--hcatalog-partition-keys dt \
+--hcatalog-partition-values ${dt} \
+--hcatalog-storage-stanza 'stored as parquet tblproperties ("orc.compress"="SNAPPY")'
+
+#date_format(create_time,'%Y%m%d') = ${dt} and

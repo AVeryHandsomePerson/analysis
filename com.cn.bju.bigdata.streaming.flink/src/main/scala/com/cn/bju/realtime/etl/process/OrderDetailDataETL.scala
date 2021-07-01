@@ -12,9 +12,7 @@ import com.cn.bju.realtime.etl.bean.OrderGoodsWideEntity
 import org.apache.flink.streaming.api.scala.AsyncDataStream
 import org.apache.flink.streaming.api.scala.{DataStream, StreamExecutionEnvironment}
 import org.apache.flink.api.scala._
-import org.apache.flink.streaming.api.scala.async.{ResultFuture, RichAsyncFunction}
 
-import java.util.Collections
 import java.util.concurrent.TimeUnit
 
 /**

@@ -300,25 +300,58 @@ ALTER TABLE ods.ods_refund_apply
 
 create table ods.ods_refund_process
 (
-    id              bigint  ,
-    platform        varchar(20)   comment '所属平台',
-    process_type    int           comment '进程类型：1.退款进程，2：投诉进程，3.换货进程',
-    refund_id       bigint        comment '退货退款单号',
-    complain_id     int           comment '投诉Id',
-    buyer_id        bigint        comment '买家Id',
-    seller_id       bigint        comment '卖家Id',
-    type            int           comment '类型：1,买家操作；2.卖家操作；0.平台操作',
-    content         varchar(255)  comment '操作内容',
-    content_pic_url varchar(600)  comment '操作图片',
-    create_time     String      comment '创建时间',
-    modify_time     String      comment '修改时间',
-    create_user     bigint        comment '创建人',
-    modify_user     bigint        comment '修改人',
-    yn              int           comment '是否有效'
-)   comment '退款进程表'
+    id              bigint,
+    platform        varchar(20) comment '所属平台',
+    process_type    int comment '进程类型：1.退款进程，2：投诉进程，3.换货进程',
+    refund_id       bigint comment '退货退款单号',
+    complain_id     int comment '投诉Id',
+    buyer_id        bigint comment '买家Id',
+    seller_id       bigint comment '卖家Id',
+    type            int comment '类型：1,买家操作；2.卖家操作；0.平台操作',
+    content         varchar(255) comment '操作内容',
+    content_pic_url varchar(600) comment '操作图片',
+    create_time     String comment '创建时间',
+    modify_time     String comment '修改时间',
+    create_user     bigint comment '创建人',
+    modify_user     bigint comment '修改人',
+    yn              int comment '是否有效'
+) comment '退款进程表'
 PARTITIONED BY (
     dt string
 )
 stored as parquet
 location '/user/hive/warehouse/ods.db/ods_refund_process'
+tblproperties ("orc.compression" = "snappy");
+
+
+create external table ods.ods_orders_self_pick
+(
+    id             bigint,
+    order_id       bigint comment '订单号',
+    verification   string comment '核销码',
+    pick_id        bigint comment '网点编码',
+    pick_name      string comment '网点名称',
+    province_code  bigint,
+    province_name  string,
+    city_code      bigint,
+    city_name      string,
+    country_code   bigint,
+    country_name   string,
+    town_code      bigint,
+    town_name      string,
+    detail_address string,
+    contact_phone  string comment '联系电话',
+    contact_name   string comment '联系人',
+    confirm_time   string comment '核销时间',
+    confirm_user   bigint comment '核销人',
+    create_time    string,
+    create_user    bigint,
+    modify_time    string,
+    modify_user    bigint
+) comment '订单自提信息'
+PARTITIONED BY (
+    dt string
+)
+stored as parquet
+location '/user/hive/warehouse/ods.db/ods_orders_self_pick'
 tblproperties ("orc.compression" = "snappy");

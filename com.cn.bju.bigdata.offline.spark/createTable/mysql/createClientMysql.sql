@@ -27,19 +27,6 @@ create table shop_client_sale_top
     dt                  date not null
 ) comment '客户采购排行榜' ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
--- auto-generated definition
-create table shop_sale_succeed_info
-(
-    shop_id               bigint,
-    order_type            varchar(5),
-    sale_user_number      bigint(100) comment '成交客户数',
-    orders_succeed_number bigint(100) comment '成交单量',
-    sale_order_number     bigint(100) comment '下单笔数',
-    sale_succeed_money    double comment '成交金额',
-    money                 double comment '客单价',
-    dt                    date not null
-) comment '客单价' charset = utf8;
-
 create table shop_deal_refund_info
 (
     shop_id               bigint comment '商铺ID',

@@ -24,14 +24,6 @@ create table shop_industry_number
     payment_order_number bigint comment '各行业数量',
     dt                   date not null
 ) comment '商家数据分析-全平台行业分布比例' ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
-create table shop_province_number
-(
-    province_name   varchar(100) comment '省份',
-    province_number integer comment '商铺数量',
-    dt              date not null
-) comment '商家数据分析-全平台行业分布比例' ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
 create table shop_refund_analysis
 (
     shop_id               integer comment '商铺ID',
@@ -44,15 +36,6 @@ create table shop_refund_analysis
     refund_ratio          double comment '退款率',
     dt                    date not null
 ) comment '商家营收分析-商家交易' ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
-
-create table shop_sale_top
-(
-    shop_id           integer comment '商铺ID',
-    shop_name         varchar(100) comment '商铺名称',
-    all_payment_money double comment '成功总金额',
-    dt                date not null
-) comment '商家营收分析-销售排行' ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
 create table shop_orders_industry
