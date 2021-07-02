@@ -340,7 +340,7 @@ sqoop import \
 --connect jdbc:mysql://10.2.0.92:3306/tradecenter?serverTimezone=GMT%2B8 \
 --username root \
 --password 123456 \
---query "select id,order_id,verification,pick_id,pick_name,province_code,province_name,city_code,city_name,country_code,country_name,town_code,town_name,detail_address,contact_phone,contact_name,confirm_time,confirm_user,create_time,create_user,modify_time,modify_user from orders_self_pick where  \$CONDITIONS" \
+--query "select id,order_id,verification,pick_id,pick_name,province_code,province_name,city_code,city_name,country_code,country_name,town_code,town_name,detail_address,contact_phone,contact_name,confirm_time,confirm_user,create_time,create_user,modify_time,modify_user from orders_self_pick where  (date_format(create_time,'%Y%m%d') = ${dt} or date_format(modify_time,'%Y%m%d') = ${dt}) and  \$CONDITIONS" \
 --driver com.mysql.jdbc.Driver \
 --split-by id \
 --hcatalog-database ods \

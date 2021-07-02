@@ -43,7 +43,9 @@ object App {
         log.info("===========> 开始执行 仓库分析模块")
         val warehouseAnalysis: WarehouseAnalysis = new WarehouseAnalysis(spark, dt, timeFlag)
         warehouseAnalysis.process()
-
+        log.info("===========> 开始执行 流量分析模块")
+        val clickLogAnalysis: ClickLogAnalysis = new ClickLogAnalysis(spark, dt, timeFlag)
+        clickLogAnalysis.process()
 
       case "goods" =>
         log.info("===========> 开始执行 商品分析模块")

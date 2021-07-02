@@ -69,6 +69,7 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
            |dwd.dwd_dim_outbound_bill
            |where dt=$dt and shop_id is not null
            |""".stripMargin).createOrReplaceTempView("dim_outbound_bill")
+      // 获取自提点信息
     } else if (timeFlag.equals("week")) {
       log.info("===========> 交易分析模块-周:" + startTime + "and" + dt)
       //零售
@@ -691,6 +692,76 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
            |""".stripMargin)
     )
     writerMysql(shopRefundInfo, "shop_deal_refund_info", flag)
+    // 自提点信息
+    spark.sql(
+      s"""
+        |select
+        |*
+        |from
+        |dwd.dwd_dim_orders_self_pick
+        |where dt = $dt
+        |""".stripMargin).createOrReplaceTempView("orders_self_pick")
+    spark.sql(
+      s"""
+         |select
+         |shop_id,
+         |count(distinct pick_id) as pick_number,
+         |count(1) as pick_order_number,
+         |cast(sum(payment_total_money) as  decimal(10,2)) as pick_order_money,
+         |cast(sum((item_original_price - cost_price) * num) as  decimal(10,2)) as pick_income_money,
+         |$dt as dt
+         |from
+         |orders_self_pick
+         |where order_type = 'TC'
+         |group by shop_id
+         |""".stripMargin).createOrReplaceTempView("pickTCdataFrame")
+    spark.sql(
+      s"""
+         |select
+         |shop_id,
+         |count(distinct pick_id) as pick_number,
+         |count(1) as pick_order_number,
+         |cast(sum(payment_total_money) as  decimal(10,2)) as pick_order_money,
+         |cast(sum(cost_price * order_num) as  decimal(10,2)) as pick_income_money,
+         |$dt as dt
+         |from
+         |orders_self_pick
+         |where order_type = 'TB'
+         |group by shop_id
+         |""".stripMargin).createOrReplaceTempView("pickTBdataFrame")
+    val pickDataFrame = spark.sql(
+      s"""
+         |select  --- A全部数据，B在A表中的数据  合并B表独有数据
+         |a.shop_id,
+         |a.pick_number + b.pick_number as pick_number,
+         |a.pick_order_number+pick_order_number as order_number,
+         |a.pick_order_money + b.pick_order_money as pick_order_money,
+         |a.pick_income_money + b.pick_income_money as pick_income_money,
+         |$dt as dt
+         |from
+         |pickTCdataFrame a
+         |left join
+         |pickTBdataFrame b
+         |on a.shop_id = b.shop_id
+         |union all
+         |select
+         |a.shop_id,
+         |a.pick_order_number,
+         |a.order_number,
+         |a.pick_order_money,
+         |a.pick_income_money,
+         |$dt as dt
+         |from
+         |pickTBdataFrame a
+         |left join
+         |pickTCdataFrame b
+         |on a.shop_id = b.shop_id
+         |where b.shop_id is null
+         |""".stripMargin)
+    writerMysql(pickDataFrame, "shop_deal_self_pick_info", flag)
+
+
+
   }
 }
 

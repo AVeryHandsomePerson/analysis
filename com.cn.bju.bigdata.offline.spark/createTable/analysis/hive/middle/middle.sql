@@ -323,3 +323,23 @@ dt string
 stored as parquet
 location '/user/hive/warehouse/dwd.db/dwd_dim_outbound_bill'
 tblproperties ("orc.compression"="snappy");
+
+create external table dwd.dwd_dim_orders_self_pick
+(
+   order_id bigint,
+   shop_id bigint,
+   pick_id bigint,
+   status bigint,
+   order_type string,
+   cost_price decimal(10, 2),
+   item_original_price decimal(10, 2),
+   payment_total_money decimal(10, 2),
+   num decimal(10, 2),
+   order_num decimal(10, 2)
+)COMMENT '自提点和订单表'
+PARTITIONED BY (
+dt string
+)
+stored as parquet
+location '/user/hive/warehouse/dwd.db/dwd_dim_orders_self_pick'
+tblproperties ("orc.compression"="snappy");

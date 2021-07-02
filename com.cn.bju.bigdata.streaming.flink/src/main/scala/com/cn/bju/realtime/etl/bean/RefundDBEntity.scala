@@ -2,6 +2,7 @@ package com.cn.bju.realtime.etl.bean
 
 import com.cn.bju.common.bean.CanalRowData
 import com.cn.bju.realtime.etl.util.CommonUtils
+import org.apache.commons.lang3.StringUtils
 import org.apache.commons.lang3.time.DateUtils
 import org.apache.flink.table.shaded.org.joda.time.DateTime
 
@@ -33,10 +34,10 @@ object RefundDBEntity {
       CommonUtils.isNotNull(rowData.getColumns.get("order_id")),
       rowData.getColumns.get("shop_id"),
       CommonUtils.isNotNull(rowData.getColumns.get("order_status")).toInt,
-      rowData.getColumns.get("refund_status").toInt,
+      CommonUtils.isNotNull(rowData.getColumns.get("refund_status")).toInt,
       rowData.getColumns.get("refund_reason"),
       rowData.getColumns.get("question_description"),
-      rowData.getColumns.get("refund_total_money").toDouble,
+      if(StringUtils.isNotEmpty(rowData.getColumns.get("refund_total_money"))) rowData.getColumns.get("refund_total_money").toDouble else 0,
       dataTime.getMillis,
       dataTime.toString("HH"),
       dataTime.toString("yyyy-MM-dd")

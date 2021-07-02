@@ -794,7 +794,7 @@ object ZipperTable {
          |""".stripMargin).createOrReplaceTempView("ods_orders_self_pick")
     spark.sql(
       s"""
-         |insert overwrite table dwd.fact_refund_apply
+         |insert overwrite table dwd.fact_orders_self_pick
          |select
          |a.id,
          |a.order_id,
@@ -825,10 +825,9 @@ object ZipperTable {
          |from
          |(select * from dwd.fact_orders_self_pick where dt =  $yesterDay ) a
          |left join
-         |ods_refund_apply_tmp b
+         |ods_orders_self_pick b
          |on a.id = b.id
          |union all
-         |insert overwrite table dwd.fact_orders_self_pick
          |select
          |id,
          |order_id,
@@ -857,164 +856,161 @@ object ZipperTable {
          |date_format(create_time, 'yyyyMMdd')
          |from ods_orders_self_pick
          |""".stripMargin)
-
-
-
     //出库单拉链表
-//    spark.sql(
-//      s"""
-//         |select
-//         |*
-//         |from
-//         |ods.ods_outbound_bill
-//         |where dt =$dt
-//         |""".stripMargin).createOrReplaceTempView("ods_outbound_bill_tmp")
-//    spark.sql(
-//      s"""
-//         |insert overwrite table dwd.fact_outbound_bill
-//         |select
-//         |a.id,
-//         |a.type,
-//         |a.order_id,
-//         |a.shop_id,
-//         |a.shop_name,
-//         |a.buyer_shop_id,
-//         |a.buyer_shop_name,
-//         |a.status,
-//         |a.sign_status,
-//         |a.sign_time,
-//         |a.sign_shop_id,
-//         |a.sign_user_id,
-//         |a.real_sign_user,
-//         |a.sign_remark,
-//         |a.order_amount,
-//         |a.total_amount,
-//         |a.create_time,
-//         |a.audit_time,
-//         |a.audit_user_id,
-//         |a.audit_user_name,
-//         |a.audit_remark,
-//         |a.outbound_time,
-//         |a.modify_time,
-//         |a.modify_user,
-//         |a.warehouse_code,
-//         |a.warehouse_name,
-//         |a.manage_user_id,
-//         |a.manage_username,
-//         |a.org_code,
-//         |a.org_parent_code,
-//         |a.outbound_remark,
-//         |a.operate_user_id,
-//         |a.operate_user_name,
-//         |a.operate_time,
-//         |a.self_pick_flag,
-//         |a.license_plate_num,
-//         |a.driver_id,
-//         |a.driver_name,
-//         |a.logistics_code,
-//         |a.logistics_no,
-//         |a.freight_label_num,
-//         |a.cut_order_id,
-//         |a.consignee_name,
-//         |a.consignee_mobile,
-//         |a.consignee_mail,
-//         |a.province_code,
-//         |a.city_code,
-//         |a.country_code,
-//         |a.town_code,
-//         |a.province_name,
-//         |a.city_name,
-//         |a.country_name,
-//         |a.town_name,
-//         |a.detail_address,
-//         |a.expect_receive_time,
-//         |a.reclaim_status,
-//         |a.sign_voucher_pic,
-//         |a.in_warehouse_code,
-//         |a.in_warehouse_name,
-//         |a.cut_price_total,
-//         |a.other_fee,
-//         |a.create_zipper_time,
-//         |case when b.id is not null and a.end_zipper_time = '9999-12-31'
-//         |then '$yesterDayDateTime' else a.end_zipper_time  end as end_zipper_time,
-//         |a.dt
-//         |from
-//         |(select * from dwd.fact_outbound_bill where dt >  $yesterDay ) a
-//         |left join
-//         |ods_outbound_bill_tmp b
-//         |on a.id = b.id
-//         |union all
-//         |select
-//         |id,
-//         |type,
-//         |order_id,
-//         |shop_id,
-//         |shop_name,
-//         |buyer_shop_id,
-//         |buyer_shop_name,
-//         |status,
-//         |sign_status,
-//         |sign_time,
-//         |sign_shop_id,
-//         |sign_user_id,
-//         |real_sign_user,
-//         |sign_remark,
-//         |order_amount,
-//         |total_amount,
-//         |create_time,
-//         |audit_time,
-//         |audit_user_id,
-//         |audit_user_name,
-//         |audit_remark,
-//         |outbound_time,
-//         |modify_time,
-//         |modify_user,
-//         |warehouse_code,
-//         |warehouse_name,
-//         |manage_user_id,
-//         |manage_username,
-//         |org_code,
-//         |org_parent_code,
-//         |outbound_remark,
-//         |operate_user_id,
-//         |operate_user_name,
-//         |operate_time,
-//         |self_pick_flag,
-//         |license_plate_num,
-//         |driver_id,
-//         |driver_name,
-//         |logistics_code,
-//         |logistics_no,
-//         |freight_label_num,
-//         |cut_order_id,
-//         |consignee_name,
-//         |consignee_mobile,
-//         |consignee_mail,
-//         |province_code,
-//         |city_code,
-//         |country_code,
-//         |town_code,
-//         |province_name,
-//         |city_name,
-//         |country_name,
-//         |town_name,
-//         |detail_address,
-//         |expect_receive_time,
-//         |reclaim_status,
-//         |sign_voucher_pic,
-//         |in_warehouse_code,
-//         |in_warehouse_name,
-//         |cut_price_total,
-//         |other_fee,
-//         |case
-//         |when modify_time is not null
-//         |    then to_date(modify_time)
-//         |else to_date(create_time)
-//         |end as create_zipper_time,
-//         |'9999-12-31' as end_zipper_time,
-//         |date_format(create_time, 'yyyyMMdd')
-//         |from ods_outbound_bill_tmp
-//         |""".stripMargin)
+    spark.sql(
+      s"""
+         |select
+         |*
+         |from
+         |ods.ods_outbound_bill
+         |where dt =$dt
+         |""".stripMargin).createOrReplaceTempView("ods_outbound_bill_tmp")
+    spark.sql(
+      s"""
+         |insert overwrite table dwd.fact_outbound_bill
+         |select
+         |a.id,
+         |a.type,
+         |a.order_id,
+         |a.shop_id,
+         |a.shop_name,
+         |a.buyer_shop_id,
+         |a.buyer_shop_name,
+         |a.status,
+         |a.sign_status,
+         |a.sign_time,
+         |a.sign_shop_id,
+         |a.sign_user_id,
+         |a.real_sign_user,
+         |a.sign_remark,
+         |a.order_amount,
+         |a.total_amount,
+         |a.create_time,
+         |a.audit_time,
+         |a.audit_user_id,
+         |a.audit_user_name,
+         |a.audit_remark,
+         |a.outbound_time,
+         |a.modify_time,
+         |a.modify_user,
+         |a.warehouse_code,
+         |a.warehouse_name,
+         |a.manage_user_id,
+         |a.manage_username,
+         |a.org_code,
+         |a.org_parent_code,
+         |a.outbound_remark,
+         |a.operate_user_id,
+         |a.operate_user_name,
+         |a.operate_time,
+         |a.self_pick_flag,
+         |a.license_plate_num,
+         |a.driver_id,
+         |a.driver_name,
+         |a.logistics_code,
+         |a.logistics_no,
+         |a.freight_label_num,
+         |a.cut_order_id,
+         |a.consignee_name,
+         |a.consignee_mobile,
+         |a.consignee_mail,
+         |a.province_code,
+         |a.city_code,
+         |a.country_code,
+         |a.town_code,
+         |a.province_name,
+         |a.city_name,
+         |a.country_name,
+         |a.town_name,
+         |a.detail_address,
+         |a.expect_receive_time,
+         |a.reclaim_status,
+         |a.sign_voucher_pic,
+         |a.in_warehouse_code,
+         |a.in_warehouse_name,
+         |a.cut_price_total,
+         |a.other_fee,
+         |a.create_zipper_time,
+         |case when b.id is not null and a.end_zipper_time = '9999-12-31'
+         |then '$yesterDayDateTime' else a.end_zipper_time  end as end_zipper_time,
+         |a.dt
+         |from
+         |(select * from dwd.fact_outbound_bill where dt >  $yesterDay ) a
+         |left join
+         |ods_outbound_bill_tmp b
+         |on a.id = b.id
+         |union all
+         |select
+         |id,
+         |type,
+         |order_id,
+         |shop_id,
+         |shop_name,
+         |buyer_shop_id,
+         |buyer_shop_name,
+         |status,
+         |sign_status,
+         |sign_time,
+         |sign_shop_id,
+         |sign_user_id,
+         |real_sign_user,
+         |sign_remark,
+         |order_amount,
+         |total_amount,
+         |create_time,
+         |audit_time,
+         |audit_user_id,
+         |audit_user_name,
+         |audit_remark,
+         |outbound_time,
+         |modify_time,
+         |modify_user,
+         |warehouse_code,
+         |warehouse_name,
+         |manage_user_id,
+         |manage_username,
+         |org_code,
+         |org_parent_code,
+         |outbound_remark,
+         |operate_user_id,
+         |operate_user_name,
+         |operate_time,
+         |self_pick_flag,
+         |license_plate_num,
+         |driver_id,
+         |driver_name,
+         |logistics_code,
+         |logistics_no,
+         |freight_label_num,
+         |cut_order_id,
+         |consignee_name,
+         |consignee_mobile,
+         |consignee_mail,
+         |province_code,
+         |city_code,
+         |country_code,
+         |town_code,
+         |province_name,
+         |city_name,
+         |country_name,
+         |town_name,
+         |detail_address,
+         |expect_receive_time,
+         |reclaim_status,
+         |sign_voucher_pic,
+         |in_warehouse_code,
+         |in_warehouse_name,
+         |cut_price_total,
+         |other_fee,
+         |case
+         |when modify_time is not null
+         |    then to_date(modify_time)
+         |else to_date(create_time)
+         |end as create_zipper_time,
+         |'9999-12-31' as end_zipper_time,
+         |date_format(create_time, 'yyyyMMdd')
+         |from ods_outbound_bill_tmp
+         |""".stripMargin)
 
 
   }
