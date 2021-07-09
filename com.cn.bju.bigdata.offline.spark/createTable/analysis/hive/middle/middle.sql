@@ -216,7 +216,8 @@ dt string
 stored as parquet
 location '/user/hive/warehouse/dwd.db/dwd_dim_refund_detail'
 tblproperties ("orc.compression"="snappy");
-alter table dwd.dwd_dim_refund_detail add columns(refund_no string);
+alter table dwd.dwd_dim_refund_detail
+    add columns(refund_no string);
 
 
 create
@@ -237,25 +238,30 @@ location '/user/hive/warehouse/dwd.db/dwd_user_order_locus'
 tblproperties ("orc.compression"="snappy");
 
 
-create external table dwd.dwd_user_statistics
+create
+external table dwd.dwd_user_statistics
 (
+    shop_id string,
     vip_name String comment '商铺ID',
     user_id bigint comment '用户id',
     user_grade_code int comment '等级阶梯',
+    vip_user_up int comment '1:等级上升 0:等级下降或相等',
+    vip_user_down int comment '1: 等级下降 0:等级上升或相等',
     grade_name String comment '等级名称',
     vip_status int comment '会员状态',
     create_time String comment '创建时间'
 )COMMENT '会员详情记录'
 PARTITIONED BY (
-dt string,
-shop_id string
+dt string
 )
 stored as parquet
 location '/user/hive/warehouse/dwd.db/dwd_user_statistics'
 tblproperties ("orc.compression"="snappy");
 
-create external table dwd.dwd_shop_store
+create
+external table dwd.dwd_shop_store
 (
+    shop_id string,
     seller_id String comment '用户id',
     store_seller_id bigint,
     store_shop_id int ,
@@ -265,8 +271,7 @@ create external table dwd.dwd_shop_store
     create_time String comment '创建时间'
 )COMMENT '我与我的的门店'
 PARTITIONED BY (
-dt string,
-shop_id string
+dt string
 )
 stored as parquet
 location '/user/hive/warehouse/dwd.db/dwd_shop_store'
@@ -276,7 +281,8 @@ tblproperties ("orc.compression"="snappy");
 
 
 
-create external table dwd.dwd_click_log
+create
+external table dwd.dwd_click_log
 (
     domain String comment '域',
     ip bigint comment 'IP地址',
@@ -303,7 +309,8 @@ location '/user/hive/warehouse/dwd.db/dwd_click_log'
 tblproperties ("orc.compression"="snappy");
 
 
-create external table dwd.dwd_dim_outbound_bill
+create
+external table dwd.dwd_dim_outbound_bill
 (
    id bigint,
    shop_id bigint,
@@ -324,7 +331,8 @@ stored as parquet
 location '/user/hive/warehouse/dwd.db/dwd_dim_outbound_bill'
 tblproperties ("orc.compression"="snappy");
 
-create external table dwd.dwd_dim_orders_self_pick
+create
+external table dwd.dwd_dim_orders_self_pick
 (
    order_id bigint,
    shop_id bigint,

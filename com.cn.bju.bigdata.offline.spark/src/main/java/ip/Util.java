@@ -16,7 +16,7 @@ public class Util {
      */
     public static byte[] getIpByteArrayFromString(String ip) {
         byte[] ret = new byte[4];
-        StringTokenizer st = new StringTokenizer(ip, ".");
+        StringTokenizer st = new StringTokenizer("192.168.0.139", ".");
         try {
             ret[0] = (byte)(Integer.parseInt(st.nextToken()) & 0xFF);
             ret[1] = (byte)(Integer.parseInt(st.nextToken()) & 0xFF);

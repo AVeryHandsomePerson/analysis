@@ -17,8 +17,6 @@ abstract class MysqlBaseETL(env:StreamExecutionEnvironment) extends BaseETL[Cana
    * @return
    */
   override def getKafkaDataStream(topic: String = GlobalConfigUtil.`input.topic.canal`): DataStream[CanalRowData] = {
-
-
     //消费的是kafka的canal数据，而binlog日志进行了protobuf的序列化，所以读取到的数据需要进行反序列化
     val canalKafkaConsumer: FlinkKafkaConsumer011[CanalRowData] = new FlinkKafkaConsumer011[CanalRowData](
       topic,

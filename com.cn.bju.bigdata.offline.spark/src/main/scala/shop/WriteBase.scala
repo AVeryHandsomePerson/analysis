@@ -18,6 +18,10 @@ abstract class WriteBase extends BaseETL[SparkSession]{
       df.write
         .mode(SaveMode.Append)
         .jdbc(StarvConfig.url, s"""${tableName}_week""", StarvConfig.properties)
+    }else if(flag.equals("month")){
+      df.write
+        .mode(SaveMode.Append)
+        .jdbc(StarvConfig.url, s"""${tableName}_month""", StarvConfig.properties)
     }
   }
 }

@@ -55,16 +55,7 @@ create table shop_deal_refund_reason
     dt                   date not null
 ) comment '退款理由指标' ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-shop_id,
-shop_name,
-refund_reason,
-order_type,
-refund_reason_number,
-refund_money,
-refund_number,
-refund_number_ratio,
-refund_money_ratio,
-$dt as dt
+
 
 
 

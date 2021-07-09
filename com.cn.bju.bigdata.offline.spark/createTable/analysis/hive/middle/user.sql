@@ -137,3 +137,20 @@ PARTITIONED BY (
 stored as parquet
 location '/user/hive/warehouse/ods.db/ods_shop_store'
 tblproperties ("orc.compression"="snappy");
+
+
+create table ods.ods_shop_user_attention
+(
+    id          bigint,
+    user_id     bigint,
+    shop_id     bigint,
+    create_time String,
+    yn          int
+)
+comment '用户关注店铺'
+PARTITIONED BY (
+  dt string
+)
+stored as parquet
+location '/user/hive/warehouse/ods.db/ods_shop_user_attention'
+tblproperties ("orc.compression"="snappy");

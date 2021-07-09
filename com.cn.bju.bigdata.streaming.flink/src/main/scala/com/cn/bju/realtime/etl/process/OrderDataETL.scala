@@ -27,8 +27,6 @@ class OrderDataETL(env: StreamExecutionEnvironment) extends MysqlBaseETL(env) {
     //1：从kafka中消费出来订单数据，过滤出来订单表的数据
     val orderDataStream: DataStream[CanalRowData] = getKafkaDataStream()
       .filter(x => (x.getTableName == "orders"))
-
-
     // 过滤需要的数据
     val orderDBFilterDataStream = orderDataStream.filter(rowData =>
       StringUtils.isNotEmpty(rowData.getColumns.get("create_time"))
@@ -97,6 +95,5 @@ class OrderDataETL(env: StreamExecutionEnvironment) extends MysqlBaseETL(env) {
     orderDBJsonDataStream.print("订单数据>>>")
     //4：将转换后的json字符串写入到kafka集群
     orderDBJsonDataStream.addSink(kafkaProducer("dwd_order"))
-
   }
 }

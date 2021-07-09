@@ -93,10 +93,9 @@ object UDFRegister{
 
   def FileIpMapping(spark:SparkSession): Unit ={
     spark.udf.register("ip_mapping", func = (ip: String) => {
-//      val file = new File("/export/servers/bju/bin/ipMapping.dat")
-      val file = new File("/data/ipMapping.dat")
+      val file = new File("/export/servers/bju/bin/ipMapping.dat")
       val ipSeeker: IPSeeker = new IPSeeker(file)
-      val country = ipSeeker.getCountry(ip)
+      val country = ipSeeker.getCountry("192.168.0.139")
       var province = ""
       var city = ""
       //如河南省郑州市

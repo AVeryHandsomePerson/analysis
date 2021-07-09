@@ -13,7 +13,7 @@ import udf.UDFRegister
  * @author ljh
  * @version 1.0
  */
-class OneGoodsAnalysis(spark: SparkSession, dt: String, timeFlag: String) extends WriteBase {
+class OneGoodsAnalysis(spark: SparkSession,var dt: String, timeFlag: String) extends WriteBase {
 
   val log = Logger.getLogger(App.getClass)
   var flag = "";
@@ -46,7 +46,8 @@ class OneGoodsAnalysis(spark: SparkSession, dt: String, timeFlag: String) extend
           |where dt = $dt
           |""".stripMargin).createOrReplaceTempView("dwd_click_log")
       //     spark.read.json(s"hdfs://bogon:8020/click_log/${dt}/").createOrReplaceTempView("click_log")
-    } else if (timeFlag.equals("week")) {
+    }
+    else if (timeFlag.equals("week")) {
       log.info("===========> 单品分析模块-周:" + startTime + "and" + dt)
       //零售
       spark.sql(
@@ -65,6 +66,29 @@ class OneGoodsAnalysis(spark: SparkSession, dt: String, timeFlag: String) extend
            |from
            |dwd.dwd_click_log
            |where dt>= $startTime and dt<=$dt
+           |""".stripMargin).createOrReplaceTempView("dwd_click_log")
+    }
+    else if (timeFlag.equals("month")) {
+      val startTime = new DateTime(DateUtils.parseDate(dt, "yyyyMMdd")).toString("yyyyMM")
+      dt = new DateTime(DateUtils.parseDate(dt, "yyyyMMdd")).dayOfMonth().withMinimumValue().toString("yyyyMMdd")
+      log.info("===========> 单品分析模块-月:"+ dt)
+      //零售
+      spark.sql(
+        s"""
+           |select
+           |*
+           |from
+           |dwd.dwd_dim_orders_detail
+           |where dt like '$startTime%'  and po_type is null
+           |""".stripMargin).createOrReplaceTempView("orders_retail")
+      // 埋点
+      spark.sql(
+        s"""
+           |select
+           |*
+           |from
+           |dwd.dwd_click_log
+           |where dt like '$startTime%'
            |""".stripMargin).createOrReplaceTempView("dwd_click_log")
     }
     flag = timeFlag
@@ -327,9 +351,6 @@ class OneGoodsAnalysis(spark: SparkSession, dt: String, timeFlag: String) extend
         |last_access_time c
         |on a.shopId  = c.shopId and a.skuId = c.skuId
         |""".stripMargin).createOrReplaceTempView("page_info_all")
-
-
-
     // 先计算 登录用户，最后一个访问记录是商品的数量
     spark.sql(
       """

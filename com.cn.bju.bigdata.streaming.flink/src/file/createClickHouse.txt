@@ -194,11 +194,14 @@ hour              String, \
 day              String, \
 oldNewUser       String \
 ) \
-ENGINE = ReplicatedMergeTree('/data/clickhouse/tables/{shard}/daily', '{replica}')\
+ENGINE = ReplacingMergeTree(orderId)\
 primary key orderId \
 PARTITION BY (day,hour) \
 ORDER BY (orderId,day,hour) \
 SETTINGS index_granularity = 8192;
+
+
+
 //增加字段
 ALTER TABLE dwd_order_all on cluster bip_ck_cluster ADD COLUMN oldNewUser String
 
@@ -399,6 +402,8 @@ hour String,  \
 day String  \
 ) \
 ENGINE = Kafka('bogon2:9092,bogon:9092,bogon3:9092', 'dwd_order_detail', 'buryDot', 'JSONEachRow');
+
+
 //创建本地表
 CREATE TABLE dwd_order_detail_cluster on cluster bip_ck_cluster ( \
 id Int64, \
@@ -429,6 +434,7 @@ ENGINE = MergeTree()\
 PARTITION BY (day,hour) \
 ORDER BY (day,hour) \
 SETTINGS index_granularity = 8192;
+
 //创建分布式表
 create table dwd_order_detail_all on cluster bip_ck_cluster \
 ( \
@@ -518,3 +524,69 @@ engine = Distributed(bip_ck_cluster,default, dwd_refund_apply_cluster,hiveHash(i
 
 CREATE MATERIALIZED VIEW dwd_refund_apply_view TO dwd_refund_apply_all \
 AS SELECT * FROM dwd_kafka_refund_apply;
+
+
+
+
+//创建出库 kafka 表
+CREATE TABLE dwd_outbound_bill_detail( \
+id Int64, \
+types Int64, \
+orderId Int64, \
+shopId Int64, \
+orderDetailId Int64, \
+cid Int64, \
+brandId Int64, \
+itemId Int64, \
+skuId Int64, \
+orderNum Double, \
+price Double, \
+createTime String, \
+hour String, \
+day String \
+) \
+ENGINE = Kafka('bogon2:9092,bogon:9092,bogon3:9092', 'dwd_outbound_bill_detail', 'buryDot', 'JSONEachRow');
+
+CREATE TABLE dwd_outbound_bill_detail_cluster on cluster bip_ck_cluster ( \
+id Int64, \
+types Int64, \
+orderId Int64, \
+shopId Int64, \
+orderDetailId Int64, \
+cid Int64, \
+brandId Int64, \
+itemId Int64, \
+skuId Int64, \
+orderNum Double, \
+price Double, \
+createTime String, \
+hour String, \
+day String \
+) \
+ENGINE = MergeTree()\
+PARTITION BY (day,hour) \
+ORDER BY (day,hour) \
+SETTINGS index_granularity = 8192;
+
+
+create table dwd_outbound_bill_detail_all on cluster bip_ck_cluster \
+( \
+id Int64, \
+types Int64, \
+orderId Int64, \
+shopId Int64, \
+orderDetailId Int64, \
+cid Int64, \
+brandId Int64, \
+itemId Int64, \
+skuId Int64, \
+orderNum Double, \
+price Double, \
+createTime String, \
+hour String, \
+day String \
+) \
+engine = Distributed(bip_ck_cluster,default, dwd_outbound_bill_detail_cluster,hiveHash(id)) ;
+
+CREATE MATERIALIZED VIEW dwd_outbound_bill_detail_view TO dwd_outbound_bill_detail_all \
+AS SELECT * FROM dwd_outbound_bill_detail;

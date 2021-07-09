@@ -12,18 +12,16 @@ import udf.UDFRegister
  * @author ljh
  * @version 1.0
  */
-class ClickLogAnalysis(spark: SparkSession, dt: String, timeFlag: String) extends WriteBase {
+class ClickLogAnalysis(spark: SparkSession,var dt: String, timeFlag: String) extends WriteBase {
 
   val log = Logger.getLogger(App.getClass)
   var flag = "";
   {
-    val startTime = new DateTime(DateUtils.parseDate(dt, "yyyyMMdd")).minusWeeks(1).toString("yyyyMMdd")
     log.info("===========> 流量分析模块-开始注册UDF函数:")
     UDFRegister.FileIpMapping(spark)
-    //    UDFRegister.FileIpMapping(spark)
     if (timeFlag.equals("day")) {
       log.info("===========> 流量分析模块-天:" + dt)
-      // 埋点
+      //埋点
       spark.sql(
         s"""
            |select
@@ -41,7 +39,9 @@ class ClickLogAnalysis(spark: SparkSession, dt: String, timeFlag: String) extend
            |dwd.dwd_dim_orders_detail
            |where dt=$dt and po_type is null and order_source != 'PC'
            |""".stripMargin).createOrReplaceTempView("orders_retail")
-    } else if (timeFlag.equals("week")) {
+    }
+    else if (timeFlag.equals("week")) {
+      val startTime = new DateTime(DateUtils.parseDate(dt, "yyyyMMdd")).minusWeeks(1).toString("yyyyMMdd")
       log.info("===========> 流量分析模块-周:" + startTime + "and" + dt)
       //零售
       spark.sql(
@@ -52,7 +52,7 @@ class ClickLogAnalysis(spark: SparkSession, dt: String, timeFlag: String) extend
            |dwd.dwd_dim_orders_detail
            |where dt>= $startTime and dt<=$dt and po_type is null
            |""".stripMargin).createOrReplaceTempView("orders_retail")
-      // 埋点
+      //埋点
       spark.sql(
         s"""
            |select
@@ -61,6 +61,29 @@ class ClickLogAnalysis(spark: SparkSession, dt: String, timeFlag: String) extend
            |dwd.dwd_click_log
            |where dt>= $startTime and dt<=$dt
            |""".stripMargin).createOrReplaceTempView("dwd_click_log")
+    }
+    else if (timeFlag.equals("month")){
+      val startTime = new DateTime(DateUtils.parseDate(dt, "yyyyMMdd")).toString("yyyyMM")
+      dt = new DateTime(DateUtils.parseDate(dt, "yyyyMMdd")).dayOfMonth().withMinimumValue().toString("yyyyMMdd")
+      log.info("===========> 流量分析模块-月:"+ dt)
+      //埋点
+      spark.sql(
+        s"""
+           |select
+           |*
+           |from
+           |dwd.dwd_click_log
+           |where dt like '$startTime%'
+           |""".stripMargin).createOrReplaceTempView("dwd_click_log")
+      //零售
+      spark.sql(
+        s"""
+           |select
+           |*
+           |from
+           |dwd.dwd_dim_orders_detail
+           |where dt like '$startTime%' and po_type is null and order_source != 'PC'
+           |""".stripMargin).createOrReplaceTempView("orders_retail")
     }
     flag = timeFlag
   }
@@ -317,15 +340,7 @@ class ClickLogAnalysis(spark: SparkSession, dt: String, timeFlag: String) extend
          |order_paid_user_source_number c
          |on a.shopId = c.shop_id and a.page_source = c.order_source
          |""".stripMargin)
-
-
-
     val frame =  pageInfoAll.union(pageInfoSource)
     writerMysql(frame, "shop_clicklog_info", flag)
-
-
-
-
-
   }
 }

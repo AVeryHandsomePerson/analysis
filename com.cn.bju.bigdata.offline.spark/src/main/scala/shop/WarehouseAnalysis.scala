@@ -12,7 +12,7 @@ import udf.UDFRegister
  * @author ljh
  * @version 1.0
  */
-class WarehouseAnalysis(spark: SparkSession, dt: String, timeFlag: String) extends WriteBase {
+class WarehouseAnalysis(spark: SparkSession,var dt: String, timeFlag: String) extends WriteBase {
 
   val log = Logger.getLogger(App.getClass)
   var flag = "";
@@ -67,8 +67,6 @@ class WarehouseAnalysis(spark: SparkSession, dt: String, timeFlag: String) exten
            |from
            |ods.ods_outbound_bill
            |where dt = $dt
-           |and (date_format(create_time,'yyyyMMdd') = $dt
-           |or date_format(modify_time,'yyyyMMdd') = $dt )
            |and status !=3 and status !=5
            |""".stripMargin).createOrReplaceTempView("outbound_bill")
       spark.sql(
@@ -78,7 +76,6 @@ class WarehouseAnalysis(spark: SparkSession, dt: String, timeFlag: String) exten
            |from
            |ods.ods_outbound_bill_detail
            |where dt = $dt
-           |and date_format(create_time,'yyyyMMdd') = $dt
            |""".stripMargin).createOrReplaceTempView("outbound_bill_detail")
 
     }
@@ -146,6 +143,64 @@ class WarehouseAnalysis(spark: SparkSession, dt: String, timeFlag: String) exten
            |ods.ods_outbound_bill_detail
            |where dt = $dt
            |and date_format(create_time,'yyyyMMdd') >= $startTime and date_format(create_time,'yyyyMMdd') <=$dt
+           |""".stripMargin).createOrReplaceTempView("outbound_bill_detail")
+    }
+    else if (timeFlag.equals("month")) {
+      val startTime = new DateTime(DateUtils.parseDate(dt, "yyyyMMdd")).toString("yyyyMM")
+      dt = new DateTime(DateUtils.parseDate(dt, "yyyyMMdd")).dayOfMonth().withMinimumValue().toString("yyyyMMdd")
+      log.info("===========> 仓库员表-月:"+ dt)
+      // 入库
+      spark.sql(
+        s"""
+           |select
+           |*
+           |from
+           |ods.ods_inbound_bill
+           |where dt = $dt
+           |and (date_format(create_time,'yyyyMMdd')  like '$startTime%'
+           |or date_format(modify_time,'yyyyMMdd')  like '$startTime%' )
+           |and status !=3 and status !=5
+           |""".stripMargin).createOrReplaceTempView("inbound_bill")
+      spark.sql(
+        s"""
+           |select
+           |*
+           |from
+           |ods.ods_inbound_bill_detail
+           |where dt = $dt
+           |and date_format(create_time,'yyyyMMdd') like '$startTime%'
+           |""".stripMargin).createOrReplaceTempView("inbound_bill_detail")
+      spark.sql(
+        s"""
+           |select
+           |shop_id,
+           |item_name,sku_code,
+           |warehouse_code,
+           |brand_id,
+           |IFNULL(inbound_num - used_num, 0) as inbound_num,
+           |IFNULL(inbound_num - used_num, 0) * price as total_money,
+           |price
+           |from
+           |ods.ods_inbound_bill_record where dt like '$startTime%'
+           |""".stripMargin).createOrReplaceTempView("inbound_bill_record")
+      spark.sqlContext.uncacheTable("inbound_bill_record")
+      // 出库
+      spark.sql(
+        s"""
+           |select
+           |*
+           |from
+           |ods.ods_outbound_bill
+           |where dt like '$startTime%'
+           |and status !=3 and status !=5
+           |""".stripMargin).createOrReplaceTempView("outbound_bill")
+      spark.sql(
+        s"""
+           |select
+           |*
+           |from
+           |ods.ods_outbound_bill_detail
+           |where dt like '$startTime%'
            |""".stripMargin).createOrReplaceTempView("outbound_bill_detail")
     }
     flag = timeFlag

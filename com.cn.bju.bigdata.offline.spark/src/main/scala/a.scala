@@ -46,7 +46,7 @@ object a {
       }
       province+","+city
     })
-        spark.read.json("/click_log/20210601/*").createOrReplaceTempView("click_log")
+        spark.read.json("/click_log/20210705/*").createOrReplaceTempView("click_log")
         spark.sql(
           """
             |

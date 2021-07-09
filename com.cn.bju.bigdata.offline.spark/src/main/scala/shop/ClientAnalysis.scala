@@ -12,7 +12,7 @@ import udf.UDFRegister
  * @author ljh
  * @version 1.0
  */
-class ClientAnalysis(spark: SparkSession, dt: String, timeFlag: String) extends WriteBase {
+class ClientAnalysis(spark: SparkSession,var dt: String, timeFlag: String) extends WriteBase {
 
   val log = Logger.getLogger(App.getClass)
   var flag = "";
@@ -39,7 +39,6 @@ class ClientAnalysis(spark: SparkSession, dt: String, timeFlag: String) extends 
          |dwd.dwd_shop_store
          |where dt = $dt
          |""".stripMargin).createOrReplaceTempView("shop_store")
-
     if (timeFlag.equals("day")) {
       log.info("===========> 客户分析模块-天:" + dt)
       //零售
@@ -70,7 +69,8 @@ class ClientAnalysis(spark: SparkSession, dt: String, timeFlag: String) extends 
            |dwd.dwd_click_log
            |where dt=$dt and userId is not null and userId != ''
            |""".stripMargin).createOrReplaceTempView("dwd_click_log")
-    } else if (timeFlag.equals("week")) {
+    }
+    else if (timeFlag.equals("week")) {
       log.info("===========> 客户分析模块-周:" + startTime + "and" + dt)
       //零售
       spark.sql(
@@ -98,6 +98,39 @@ class ClientAnalysis(spark: SparkSession, dt: String, timeFlag: String) extends 
            |from
            |dwd.dwd_click_log
            |where dt>= $startTime and dt<=$dt
+           |""".stripMargin).createOrReplaceTempView("dwd_click_log")
+    }
+    else if (timeFlag.equals("month")){
+      val startTime = new DateTime(DateUtils.parseDate(dt, "yyyyMMdd")).toString("yyyyMM")
+      dt = new DateTime(DateUtils.parseDate(dt, "yyyyMMdd")).dayOfMonth().withMinimumValue().toString("yyyyMMdd")
+      log.info("===========> 客户分析模块-月:"+ dt)
+      //零售
+      spark.sql(
+        s"""
+           |select
+           |*
+           |from
+           |dwd.dwd_dim_orders_detail
+           |where dt like '$startTime%' and po_type is null  and paid = 2
+           |""".stripMargin).createOrReplaceTempView("orders_retail")
+      //采购
+      spark.sql(
+        s"""
+           |select
+           |*
+           |from
+           |dwd.dwd_dim_orders_detail
+           |where dt like '$startTime%' and po_type = 'PO'
+           |""".stripMargin).createOrReplaceTempView("purchase_tmp")
+      //埋点
+      spark.sql(
+        s"""
+           |select
+           |shopId,
+           |userId
+           |from
+           |dwd.dwd_click_log
+           |where dt like '$startTime%'
            |""".stripMargin).createOrReplaceTempView("dwd_click_log")
     }
     flag = timeFlag
@@ -266,7 +299,6 @@ class ClientAnalysis(spark: SparkSession, dt: String, timeFlag: String) extends 
          |client_order_tmp
          |""".stripMargin))
     writerMysql(shopClientAnalysisDF, "shop_client_analysis", flag)
-
     /**
      * 访问-支付转化率 -- 需埋点
      * 全部成交客户-访问-支付转化率：全部支付成功客户数/店铺访客数
@@ -419,21 +451,32 @@ class ClientAnalysis(spark: SparkSession, dt: String, timeFlag: String) extends 
            |""".stripMargin)
     )
     writerMysql(shopClientSaleTopDF, "shop_client_sale_top", flag)
+    spark.sql(
+      s"""
+        |select
+        |shop_id,
+        |count(1) as attention_number,
+        |count( case when dt = $dt then 1 end) as new_attention_number
+        |from
+        |ods.ods_shop_user_attention
+        |group by shop_id
+        |""".stripMargin).createOrReplaceTempView("user_all_attention")
     // 会员信息
     val membersDataFrame = spark.sql(
       s"""
-         |select
+         |with t1 as (select
          |shop_id,
          |count(1)  as all_user,
          |count(case when regexp_replace(to_date(create_time),"-","") == $dt then user_id end) as new_user_number,
          |sum(case when b.userId is not null then 1 else 0 end) as user_access_number,
-         |$dt as dt
+         |sum(vip_user_up) as vip_user_up
          |from
          |(
          |select
          |shop_id,
          |user_id,
-         |create_time
+         |create_time,
+         |vip_user_up
          |from
          |user_statistics
          |) a
@@ -448,6 +491,21 @@ class ClientAnalysis(spark: SparkSession, dt: String, timeFlag: String) extends 
          |) b
          |on a.shop_id = b.shopId and a.user_id = b.userId
          |group by a.shop_id
+         |)
+         |select
+         |case when t1.shop_id is null then b.shop_id else t1.shop_id end as shop_id,
+         |t1.all_user,
+         |t1.new_user_number,
+         |t1.user_access_number,
+         |t1.vip_user_up,
+         |b.attention_number,
+         |b.new_attention_number,
+         |$dt as dt
+         |from
+         |t1
+         |full outer join
+         |user_all_attention b
+         |on t1.shop_id = b.shop_id
          |""".stripMargin)
     writerMysql(membersDataFrame, "shop_client_members_info", flag)
     // 客户信息

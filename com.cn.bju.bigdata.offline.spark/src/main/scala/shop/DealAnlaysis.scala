@@ -12,7 +12,7 @@ import udf.UDFRegister
  * @author ljh
  * @version 1.0
  */
-class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends WriteBase {
+class DealAnlaysis(spark: SparkSession,var dt: String, timeFlag: String) extends WriteBase {
   val log = Logger.getLogger(App.getClass)
   var flag = "";
   {
@@ -70,7 +70,8 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
            |where dt=$dt and shop_id is not null
            |""".stripMargin).createOrReplaceTempView("dim_outbound_bill")
       // 获取自提点信息
-    } else if (timeFlag.equals("week")) {
+    }
+    else if (timeFlag.equals("week")) {
       log.info("===========> 交易分析模块-周:" + startTime + "and" + dt)
       //零售
       spark.sql(
@@ -111,7 +112,59 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
            |where dt>= $startTime and dt<=$dt
            |group by refund_id
            |""".stripMargin).createOrReplaceTempView("refund_process")
+    }else if (timeFlag.equals("month")) {
+      val startTime = new DateTime(DateUtils.parseDate(dt, "yyyyMMdd")).toString("yyyyMM")
+      dt = new DateTime(DateUtils.parseDate(dt, "yyyyMMdd")).dayOfMonth().withMinimumValue().toString("yyyyMMdd")
+      log.info("===========> 交易分析模块-月:"+ dt)
+      //零售
+      spark.sql(
+        s"""
+           |select
+           |*
+           |from
+           |dwd.dwd_dim_orders_detail
+           |where dt like '$startTime%'  and po_type is null
+           |""".stripMargin).createOrReplaceTempView("orders_retail")
+      //采购
+      spark.sql(
+        s"""
+           |select
+           |*
+           |from
+           |dwd.dwd_dim_orders_detail
+           |where dt like '$startTime%'  and po_type = 'PO'
+           |""".stripMargin).createOrReplaceTempView("purchase_tmp")
+      //退货
+      spark.sql(
+        s"""
+           |select
+           |*
+           |from
+           |dwd.dwd_dim_refund_detail
+           |where dt like '$startTime%'  and po_type is null
+           |""".stripMargin).createOrReplaceTempView("refund_orders_tmp")
+      spark.sql(
+        s"""
+           |
+           |select
+           |refund_id,
+           |max(create_time) as max_time,
+           |min(create_time) as min_time
+           |from
+           |ods.ods_refund_process
+           |where dt like '$startTime%'
+           |group by refund_id
+           |""".stripMargin).createOrReplaceTempView("refund_process")
+      spark.sql(
+        s"""
+           |select
+           |*
+           |from
+           |dwd.dwd_dim_outbound_bill
+           |where dt like '$startTime%' and shop_id is not null
+           |""".stripMargin).createOrReplaceTempView("dim_outbound_bill")
     }
+
     flag = timeFlag
   }
 
@@ -705,6 +758,7 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
       s"""
          |select
          |shop_id,
+         |'TC' as order_type,
          |count(distinct pick_id) as pick_number,
          |count(1) as pick_order_number,
          |cast(sum(payment_total_money) as  decimal(10,2)) as pick_order_money,
@@ -719,6 +773,7 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
       s"""
          |select
          |shop_id,
+         |'TB' as order_type,
          |count(distinct pick_id) as pick_number,
          |count(1) as pick_order_number,
          |cast(sum(payment_total_money) as  decimal(10,2)) as pick_order_money,
@@ -734,7 +789,7 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
          |select  --- A全部数据，B在A表中的数据  合并B表独有数据
          |a.shop_id,
          |a.pick_number + b.pick_number as pick_number,
-         |a.pick_order_number+pick_order_number as order_number,
+         |a.pick_order_number+b.pick_order_number as pick_order_number,
          |a.pick_order_money + b.pick_order_money as pick_order_money,
          |a.pick_income_money + b.pick_income_money as pick_income_money,
          |$dt as dt
@@ -746,8 +801,8 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
          |union all
          |select
          |a.shop_id,
+         |a.pick_number,
          |a.pick_order_number,
-         |a.order_number,
          |a.pick_order_money,
          |a.pick_income_money,
          |$dt as dt
@@ -759,9 +814,6 @@ class DealAnlaysis(spark: SparkSession, dt: String, timeFlag: String) extends Wr
          |where b.shop_id is null
          |""".stripMargin)
     writerMysql(pickDataFrame, "shop_deal_self_pick_info", flag)
-
-
-
   }
 }
 

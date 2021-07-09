@@ -42,7 +42,6 @@ object OrdersMiddle {
          |where parent_order_id != 0 and dt = $dt and end_zipper_time = '9999-12-31'
          |""".stripMargin).createOrReplaceTempView("orders")
     spark.sqlContext.cacheTable("orders")
-
     /**
      * 订单表和订单维度关联 生成订单维度表
      * 1.订单明细表关联存在多对一
@@ -324,40 +323,99 @@ object OrdersMiddle {
          |on a.buyer_id = b.buyer_id and a.shop_id = b.shop_id
          |where  b.buyer_id is null
          |""".stripMargin)
-    // 会员表合并每日新增用户
+    // 会员表合并每日新增用户 insert overwrite table dwd.dwd_user_statistics
+    spark.sql(
+      s"""
+         |select
+         |shop_id,
+         |vip_name,
+         |user_id,
+         |user_grade_code,
+         |vip_user_up,
+         |vip_user_down,
+         |grade_name,
+         |vip_status,
+         |create_time
+         |from dwd.dwd_user_statistics
+         |where dt=$yesterDay
+         |""".stripMargin).createOrReplaceTempView("user_statistics")
+    spark.sql(
+      s"""
+         |select
+         |shop_id,
+         |vip_name,
+         |user_id,
+         |user_grade_code,
+         |grade_name,
+         |vip_status,
+         |create_time,
+         |$dt
+         |from
+         |ods.ods_user_statistics
+         |where dt = $dt and shop_id is not null
+         |""".stripMargin).createOrReplaceTempView("ods_user_statistics")
     spark.sql(
       s"""
          |insert overwrite table dwd.dwd_user_statistics
-         |select
-         |vip_name,
-         |user_id,
-         |user_grade_code,
-         |grade_name,
-         |vip_status,
-         |create_time,
-         |$dt,
-         |shop_id
+         |select  -- 更新老用户
+         |a.shop_id,
+         |a.vip_name,
+         |a.user_id,
+         |a.user_grade_code,
+         |case when b.user_grade_code < a.user_grade_code then 1 else 0 end as vip_user_up,
+         |case when b.user_grade_code > a.user_grade_code then 1 else 0 end as vip_user_down,
+         |a.grade_name,
+         |a.vip_status,
+         |b.create_time,
+         |$dt
          |from
-         |ods.ods_user_statistics
-         |where dt = '$dt'
+         |ods_user_statistics a
+         |inner join
+         |user_statistics b
+         |on a.shop_id = b.shop_id and a.vip_name =b.vip_name and a.user_id = b.user_id
          |union all
-         |select
-         |vip_name,
-         |user_id,
-         |user_grade_code,
-         |grade_name,
-         |vip_status,
-         |create_time,
-         |dt,
-         |shop_id
-         |from dwd.dwd_user_statistics
-         |where dt=$yesterDay
+         |select  --只有新用户数据
+         |a.shop_id,
+         |a.vip_name,
+         |a.user_id,
+         |a.user_grade_code,
+         |0 vip_user_up,
+         |0 vip_user_down,
+         |a.grade_name,
+         |a.vip_status,
+         |a.create_time,
+         |$dt
+         |from
+         |ods_user_statistics a
+         |left join
+         |user_statistics b
+         |on a.shop_id = b.shop_id and a.vip_name =b.vip_name and a.user_id = b.user_id
+         |where b.shop_id is null
+         |union all
+         |select  --老用户在今天没有出现的数据
+         |b.shop_id,
+         |b.vip_name,
+         |b.user_id,
+         |b.user_grade_code,
+         |b.vip_user_up,
+         |b.vip_user_down,
+         |b.grade_name,
+         |b.vip_status,
+         |b.create_time,
+         |$dt
+         |from
+         |ods_user_statistics a
+         |right join
+         |user_statistics b
+         |on a.shop_id = b.shop_id and a.vip_name =b.vip_name and a.user_id = b.user_id
+         |where a.shop_id is null
          |""".stripMargin)
-    // 会员表合并每日新增用户
+    // 客户表合并每日新增用户
     spark.sql(
       s"""
          |insert overwrite table dwd.dwd_shop_store
          |select
+         |shop_id,
          |seller_id,
          |store_seller_id,
          |store_shop_id,
@@ -365,13 +423,13 @@ object OrdersMiddle {
          |status,
          |type,
          |create_time,
-         |$dt,
-         |shop_id
+         |$dt
          |from
          |ods.ods_shop_store
-         |where dt = '$dt'
+         |where dt =$dt
          |union all
          |select
+         |shop_id,
          |seller_id,
          |store_seller_id,
          |store_shop_id,
@@ -379,8 +437,7 @@ object OrdersMiddle {
          |status,
          |type,
          |create_time,
-         |$dt,
-         |shop_id
+         |$dt
          |from
          |dwd.dwd_shop_store
          |where dt = '$yesterDay'
@@ -403,7 +460,8 @@ object OrdersMiddle {
          |a.price,
          |$dt as dt
          |from
-         |(select
+         |(
+         |select
          |*
          |from
          |ods.ods_outbound_bill_detail
@@ -464,9 +522,6 @@ object OrdersMiddle {
          |on
          |a.order_id = c.order_id and a.item_id=c.order_id
          |""".stripMargin)
-
-
-
 
     // 埋点
     spark.read.json(s"hdfs://bogon:8020/click_log/${dt}/")

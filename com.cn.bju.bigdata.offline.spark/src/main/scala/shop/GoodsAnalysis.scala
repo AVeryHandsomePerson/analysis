@@ -12,7 +12,7 @@ import udf.UDFRegister
  * @author ljh
  * @version 1.0
  */
-class GoodsAnalysis(spark: SparkSession, dt: String, timeFlag: String) extends WriteBase {
+class GoodsAnalysis(spark: SparkSession, var dt: String, timeFlag: String) extends WriteBase {
 
   val log = Logger.getLogger(App.getClass)
   var flag = "";
@@ -64,7 +64,30 @@ class GoodsAnalysis(spark: SparkSession, dt: String, timeFlag: String) extends W
            |dwd.dwd_dim_orders_detail
            |where dt>= $startTime and dt<=$dt and po_type = 'PO'
            |""".stripMargin).createOrReplaceTempView("purchase_tmp")
+    }else if (timeFlag.equals("month")) {
+      val startTime = new DateTime(DateUtils.parseDate(dt, "yyyyMMdd")).toString("yyyyMM")
+      dt = new DateTime(DateUtils.parseDate(dt, "yyyyMMdd")).dayOfMonth().withMinimumValue().toString("yyyyMMdd")
+      log.info("===========> 商品分析模块-月:"+ dt)
+      //零售
+      spark.sql(
+        s"""
+           |select
+           |*
+           |from
+           |dwd.dwd_dim_orders_detail
+           |where dt like '$startTime%'  and po_type is null
+           |""".stripMargin).createOrReplaceTempView("orders_retail")
+      //采购
+      spark.sql(
+        s"""
+           |select
+           |*
+           |from
+           |dwd.dwd_dim_orders_detail
+           |where dt like '$startTime%'  and po_type = 'PO'
+           |""".stripMargin).createOrReplaceTempView("purchase_tmp")
     }
+
     flag = timeFlag
   }
 
