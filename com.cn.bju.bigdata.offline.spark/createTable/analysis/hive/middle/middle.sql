@@ -221,7 +221,7 @@ alter table dwd.dwd_dim_refund_detail
 
 
 create
-external table dwd.dwd_user_order_locus
+external table dwd.dwd_dim_order_user_locus
 (
     shop_id    bigint comment '商铺ID',
     buyer_id   bigint comment '用户id',
@@ -234,7 +234,7 @@ PARTITIONED BY (
 dt string
 )
 stored as parquet
-location '/user/hive/warehouse/dwd.db/dwd_user_order_locus'
+location '/user/hive/warehouse/dwd.db/dwd_dim_order_user_locus'
 tblproperties ("orc.compression"="snappy");
 
 

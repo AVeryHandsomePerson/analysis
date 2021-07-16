@@ -97,11 +97,10 @@ object OrdersMiddle {
     /**
      * 订单和收货表关联
      * 订单和收货表为 1对1关系
-     * 省市维度表
+     * 省市维度表 insert overwrite table dwd.dwd_dim_orders_receive_city
      */
     spark.sql(
       s"""
-         |insert overwrite table dwd.dwd_dim_orders_receive_city
          |select
          |a.order_id,
          |a.shop_id,
@@ -134,6 +133,7 @@ object OrdersMiddle {
          |) b
          |on a.order_id = b.order_id
          |""".stripMargin)
+
     //退货表
     spark.sql(
       s"""

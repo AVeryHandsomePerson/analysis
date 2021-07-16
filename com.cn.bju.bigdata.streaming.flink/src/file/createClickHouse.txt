@@ -590,3 +590,28 @@ engine = Distributed(bip_ck_cluster,default, dwd_outbound_bill_detail_cluster,hi
 
 CREATE MATERIALIZED VIEW dwd_outbound_bill_detail_view TO dwd_outbound_bill_detail_all \
 AS SELECT * FROM dwd_outbound_bill_detail;
+
+
+
+
+
+CREATE TABLE off_line_dws.dws_shop_deal_info on cluster bip_ck_cluster (
+shop_id Int64,
+buyer_id Int64,
+sku_id Int64,
+item_name String,
+pick_id Int64,
+pick_name String,
+order_type String,
+sale_order_number Int64, --下单笔数
+sale_pick_order_number Int64, --自提点订单数
+payment_num Double,  --支付件数
+payment_succeed_money Double, -- 支付成功金额
+payment_succeed_number Int64, --支付成功数据(成交单量)
+income_money Double, -- 收入金额
+payment_money Double --下单金额
+)
+ENGINE = MergeTree()
+PARTITION BY (day,hour)
+ORDER BY (day,hour)
+SETTINGS index_granularity = 8192;

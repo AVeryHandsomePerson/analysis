@@ -17,7 +17,6 @@ object ZipperTable {
     val dt = args(0)
     val yesterDayDateTime = new DateTime(DateUtils.parseDate(dt, "yyyyMMdd")).minusDays(1).toString("yyyy-MM-dd")
     val yesterDay = new DateTime(DateUtils.parseDate(dt, "yyyyMMdd")).minusDays(1).toString("yyyyMMdd")
-
     /**
      * 订单拉链表
      */
@@ -199,9 +198,9 @@ object ZipperTable {
          |from
          |oders_tmp
          |""".stripMargin)
-
     /**
      * 订单明细拉链表
+     * 去除
      */
     spark.sql(
       s"""
@@ -329,7 +328,6 @@ object ZipperTable {
          |date_format(create_time, 'yyyyMMdd')
          |from ods_orders_detail_tmp
          |""".stripMargin)
-
     /**
      * 商品
      */
@@ -463,9 +461,9 @@ object ZipperTable {
          |date_format(create_time, 'yyyyMMdd')
          |from item_tmp
          |""".stripMargin)
-
     /**
      * 订单收货拉链表
+     * 去除
      */
     spark.sql(
       s"""
@@ -540,7 +538,6 @@ object ZipperTable {
          |from
          |ods_orders_receive_tmp
          |""".stripMargin)
-
     /**
      * 订单退货明细拉链表
      */
@@ -629,7 +626,6 @@ object ZipperTable {
          |from
          |ods_refund_details_tmp
          |""".stripMargin)
-
     /**
      * 订单退货拉链表
      */
@@ -779,7 +775,6 @@ object ZipperTable {
          |date_format(create_time,'yyyyMMdd')
          |from
          |ods_refund_apply_tmp
-         |where
          |""".stripMargin)
     /**
      * 自提点 拉链表
@@ -949,8 +944,6 @@ object ZipperTable {
          |ods_outbound_bill_tmp b
          |on a.id = b.id
          |union all
-         |insert
-         |overwrite table dwd.fact_outbound_bill
          |select id,
          |       type,
          |       order_id,
@@ -1024,8 +1017,104 @@ object ZipperTable {
          |       to_date(create_time) as create_zipper_time,
          |       '9999-12-31'         as end_zipper_time,
          |       date_format(create_time, 'yyyyMMdd')
-         |from ods.ods_outbound_bill
+         |from ods_outbound_bill_tmp
          |""".stripMargin)
+    /**
+     *用户拉链表
+     */
+    spark.sql(
+      s"""
+        |select
+        |*
+        |from
+        |ods.ods_user
+        |where dt =$dt
+        |""".stripMargin).createOrReplaceTempView("user")
+    spark.sql(
+      s"""
+         |insert overwrite table dwd.dim_user
+         |select
+         |a.id,
+         |a.platform,
+         |a.tenant_id,
+         |a.seller_id,
+         |a.parent_id,
+         |a.name,
+         |a.mobile,
+         |a.email,
+         |a.nickname,
+         |a.sex,
+         |a.birthday,
+         |a.hobbies,
+         |a.icon,
+         |a.type,
+         |a.flag,
+         |a.pay_password,
+         |a.status,
+         |a.create_time,
+         |a.modify_time,
+         |a.create_user,
+         |a.modify_user,
+         |a.failed_login_count,
+         |a.yn,
+         |a.login_time,
+         |a.login_num,
+         |a.pay_password_safe,
+         |a.seller_pay_password,
+         |a.logout_time,
+         |a.job_number,
+         |a.remark,
+         |a.dis_flag,
+         |a.group_flag,
+         |a.create_zipper_time,
+         |case when b.id is not null and a.end_zipper_time = '9999-12-31'
+         |then '$yesterDayDateTime' else a.end_zipper_time  end as end_zipper_time,
+         |a.dt
+         |from
+         |(select * from dwd.dim_user) a
+         |left join
+         |user b
+         |on a.id = b.id
+         |union all
+         |select
+         |id,
+         |platform,
+         |tenant_id,
+         |seller_id,
+         |parent_id,
+         |name,
+         |mobile,
+         |email,
+         |nickname,
+         |sex,
+         |birthday,
+         |hobbies,
+         |icon,
+         |type,
+         |flag,
+         |pay_password,
+         |status,
+         |create_time,
+         |modify_time,
+         |create_user,
+         |modify_user,
+         |failed_login_count,
+         |yn,
+         |login_time,
+         |login_num,
+         |pay_password_safe,
+         |seller_pay_password,
+         |logout_time,
+         |job_number,
+         |remark,
+         |dis_flag,
+         |group_flag,
+         |to_date(create_time) as create_zipper_time,
+         |'9999-12-31'  as end_zipper_time,
+         |date_format(create_time, 'yyyyMMdd')
+         |from user
+         |""".stripMargin)
+
 
 
   }

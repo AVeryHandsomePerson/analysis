@@ -34,9 +34,8 @@ external table ods.ods_user
       `logout_time` string          comment '注销时间',
       `job_number` varchar(255)          comment '员工编号',
       `remark` varchar(255)          comment '备注',
-      `is_sales_man` int          comment '是否为业务员 1:是   0:不是',
-      `is_buyer_man` int          comment '是否是采购员 1：是 0：否',
-      `is_cut_man` int          comment '是否是分切员 1：是 0：否'
+      `dis_flag` int          comment '分销标识 1申请 2通过',
+      `group_flag` int          comment '团长标识 1申请 2通过'
 )
 comment '用户表'
 PARTITIONED BY (

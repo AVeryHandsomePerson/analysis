@@ -49,7 +49,7 @@ class OutBoundBillETL(env: StreamExecutionEnvironment) extends MysqlBaseETL(env)
       .filter(x => (x.getTableName == "outbound_bill_detail"))
       .map(x => {
         OutBoundBillDetail(
-          x.getColumns.get("outbound_bill_id").toLong,
+          if (StringUtils.isNotEmpty(x.getColumns.get("outbound_bill_id"))) x.getColumns.get("outbound_bill_id").toLong else 0,
           if (StringUtils.isNotEmpty(x.getColumns.get("cid"))) x.getColumns.get("cid").toInt else 0,
           if (StringUtils.isNotEmpty(x.getColumns.get("brand_id"))) x.getColumns.get("brand_id").toInt else 0,
           if (StringUtils.isNotEmpty(x.getColumns.get("item_id"))) x.getColumns.get("item_id").toLong else 0,
@@ -58,7 +58,7 @@ class OutBoundBillETL(env: StreamExecutionEnvironment) extends MysqlBaseETL(env)
           if (StringUtils.isNotEmpty(x.getColumns.get("price"))) x.getColumns.get("price").toDouble else 0.0,
           x.getColumns.get("create_time")
         )
-      })
+      }).filter(_.create_time.nonEmpty)
     //    对出库主表信息进行降维和分组
     val outboundDllJsonStream = outboundDll
       .assignAscendingTimestamps(x => {

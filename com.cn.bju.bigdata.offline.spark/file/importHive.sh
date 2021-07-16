@@ -142,7 +142,7 @@ sqoop import \
 --connect jdbc:mysql://10.2.0.92:3306/usercenter?serverTimezone=GMT%2B8 \
 --username root \
 --password 123456 \
---query "select id,platform,tenant_id,seller_id,parent_id,\`name\`,mobile,email,nickname,sex,birthday,hobbies,icon,\`type\`,flag,pay_password,status,create_time,modify_time,create_user,modify_user,failed_login_count,yn,login_time,login_num,pay_password_safe,seller_pay_password,logout_time,job_number,remark,is_sales_man,is_buyer_man,is_cut_man from user where  \$CONDITIONS" \
+--query "select id,platform,tenant_id,seller_id,parent_id,\`name\`,mobile,email,nickname,sex,birthday,hobbies,icon,\`type\`,flag,pay_password,status,create_time,modify_time,create_user,modify_user,failed_login_count,yn,login_time,login_num,pay_password_safe,seller_pay_password,logout_time,job_number,remark,dis_flag,group_flag from user where (date_format(create_time,'%Y%m%d') = ${dt} or date_format(modify_time,'%Y%m%d') = ${dt}) and  \$CONDITIONS" \
 --driver com.mysql.jdbc.Driver \
 --split-by id \
 --hcatalog-database ods \
@@ -322,6 +322,7 @@ sqoop import \
 
 echo 'storecenter.shop_store'+${dt}
 sqoop import \
+-D mapred.job.queue.name=root.users \
 --connect jdbc:mysql://10.2.0.92:3306/storecenter?serverTimezone=GMT%2B8 \
 --username root \
 --password 123456 \

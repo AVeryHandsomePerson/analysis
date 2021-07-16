@@ -2,6 +2,7 @@ package shop
 
 import `trait`.BaseETL
 import common.StarvConfig
+import org.apache.spark.sql.execution.datasources.jdbc.JDBCOptions
 import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 
 /**
@@ -13,6 +14,7 @@ abstract class WriteBase extends BaseETL[SparkSession]{
     if(flag.equals("day")){
       df.write
         .mode(SaveMode.Append)
+        .option(JDBCOptions.JDBC_BATCH_INSERT_SIZE, 100000)
         .jdbc(StarvConfig.url, tableName, StarvConfig.properties)
     }else if(flag.equals("week")){
       df.write

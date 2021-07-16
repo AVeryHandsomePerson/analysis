@@ -355,6 +355,7 @@ class DealAnlaysis(spark: SparkSession,var dt: String, timeFlag: String) extends
          |where order_type = 'TC'
          |group by shop_id,order_type,refund_reason
          |""".stripMargin).createOrReplaceTempView("shop_refund_reason_tc")
+
     val shopRefundReasonDF = spark.sql(
       s"""
          |select
@@ -478,7 +479,7 @@ class DealAnlaysis(spark: SparkSession,var dt: String, timeFlag: String) extends
          |sku_id,
          |count(1) as refund_reason_number, -- 店铺下每个商品的总退款单数
          |sum(case when refund_status = 6 then cast(refund_num * refund_price as decimal(10,2)) else 0 end) as refund_money, --成功退款金额
-         |count(distinct refund_reason)as refund_sku_reason_number, -- 店铺下每个商品的总退款单数
+         |count(distinct refund_reason) as refund_sku_reason_number, -- 店铺下每个商品的总退款单数
          |count(case when refund_status = 6 then 1 end) as refund_number --店铺下每个商品的成功退款数量
          |from
          |refund_orders

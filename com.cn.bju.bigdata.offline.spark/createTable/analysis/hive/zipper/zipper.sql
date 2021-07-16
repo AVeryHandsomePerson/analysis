@@ -967,3 +967,91 @@ select id,
        '9999-12-31'         as end_zipper_time,
        date_format(create_time, 'yyyyMMdd')
 from ods.ods_orders_self_pick
+
+
+
+create
+external table dwd.dim_user
+(
+      id bigint                              ,
+      platform String          comment '所属平台',
+      tenant_id bigint          comment '租户id',
+      seller_id bigint          comment '卖家ID',
+      parent_id bigint          comment '父账号id(如果父账号id为1，则该账号为父账号，默认为1)',
+      name String   comment '姓名',
+      mobile String         comment '联系手机号',
+      email String         comment '联系邮箱',
+      nickname String         comment '昵称',
+      sex int          comment '性别 1男 2女',
+      birthday string          comment '生日',
+      hobbies String          comment '兴趣爱好',
+      icon String          comment '头像',
+      type int        comment '用户类型（1-普通用户，2-买家，3-卖家, 4-平台）',
+      flag int          comment '1:个人 2：企业 3超级管理员 4:店员',
+      pay_password String          comment '买家支付密码',
+      status int          comment '1-普通用户待验证，2-普通用户验证通过，3-买家待审核，4-买家审核通过，5-卖家待审核，6-卖家审核通过9:删除',
+      create_time string          comment '创建时间',
+      modify_time string          comment '更新时间',
+      create_user bigint          comment '创建人id',
+      modify_user bigint          comment '修改人id',
+      failed_login_count int          comment '失败登录次数',
+      yn int          comment '0:无效,1:有效',
+      login_time string          comment '上次登录时间',
+      login_num int          comment '登录次数',
+      pay_password_safe int          comment '支付密码强度：1低、2中、3高',
+      seller_pay_password String          comment '卖家支付密码',
+      logout_time string          comment '注销时间',
+      job_number String          comment '员工编号',
+      remark String          comment '备注',
+      dis_flag int          comment '分销标识 1申请 2通过',
+      group_flag int          comment '团长标识 1申请 2通过',
+      create_zipper_time     string comment '有效开始时间',
+    end_zipper_time        string comment '有效结束时间'
+)
+comment '用户信息-拉链表'
+PARTITIONED BY (
+  dt string
+)
+stored as parquet
+location '/user/hive/warehouse/dwd.db/dim_user'
+tblproperties ("orc.compression"="snappy");
+
+insert
+overwrite table dwd.dim_user
+select
+id,
+platform,
+tenant_id,
+seller_id,
+parent_id,
+name,
+mobile,
+email,
+nickname,
+sex,
+birthday,
+hobbies,
+icon,
+type,
+flag,
+pay_password,
+status,
+create_time,
+modify_time,
+create_user,
+modify_user,
+failed_login_count,
+yn,
+login_time,
+login_num,
+pay_password_safe,
+seller_pay_password,
+logout_time,
+job_number,
+remark,
+dis_flag,
+group_flag,
+to_date(create_time) as create_zipper_time,
+'9999-12-31'         as end_zipper_time,
+date_format(create_time, 'yyyyMMdd')
+from ods.ods_user

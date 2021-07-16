@@ -1,5 +1,6 @@
 package app
 
+import dwd.DwdETL
 import org.apache.log4j.Logger
 import org.apache.spark.sql.SparkSession
 import shop.{ClickLogAnalysis, ClientAnalysis, CommonAnalysis, DealAnlaysis, GoodsAnalysis, OneGoodsAnalysis, WarehouseAnalysis}
@@ -75,6 +76,9 @@ object App {
         log.info("===========> 开始执行 公共模块")
         val commonAnalysis = new CommonAnalysis(spark, dt, timeFlag)
         commonAnalysis.process()
+      case "dwd" =>
+        val dwdetl = new DwdETL(spark, dt)
+        dwdetl.process()
       case _ =>
     }
     log.info("===========> 执行结束:" + dt)
