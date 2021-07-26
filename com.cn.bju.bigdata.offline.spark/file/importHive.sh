@@ -165,12 +165,12 @@ sqoop import \
 --hcatalog-partition-values ${dt} \
 --hcatalog-storage-stanza 'stored as parquet tblproperties ("orc.compress"="SNAPPY")'
 
-echo 'storecenter.inbound_bill'+${dt}
+echo 'tradecenter.inbound_bill'+${dt}
 sqoop import \
---connect jdbc:mysql://10.2.0.92:3306/storecenter?serverTimezone=GMT%2B8 \
+--connect jdbc:mysql://10.2.0.92:3306/tradecenter?serverTimezone=GMT%2B8 \
 --username root \
 --password 123456 \
---query "select id,sign_bill_id,type,order_id,seller_id,shop_id,shop_name,status,order_amount,inbound_amount,purchase_date,create_time,audit_time,audit_user_id,audit_username,audit_remark,modify_time,modify_user,warehouse_code,warehouse_name,supplier_shop_id,supplier_shop_name,manage_user_id,manage_username,org_code,org_parent_code,inbound_remark,operate_user_id,operate_user_name,operate_time,cut_order_id,customer_shop_id,customer_shop_name,is_refuse_receive from inbound_bill where  \$CONDITIONS" \
+--query "select id,sign_bill_id,type,order_id,seller_id,shop_id,shop_name,status,order_amount,inbound_amount,purchase_date,create_time,audit_time,audit_user_id,audit_username,audit_remark,modify_time,modify_user,warehouse_code,warehouse_name,supplier_shop_id,supplier_shop_name,manage_user_id,manage_username,org_code,org_parent_code,inbound_remark,operate_user_id,operate_user_name,operate_time,cut_order_id,customer_shop_id,customer_shop_name,is_refuse_receive from inbound_bill where (date_format(create_time,'%Y%m%d') = ${dt} or date_format(modify_time,'%Y%m%d') = ${dt}) and  \$CONDITIONS" \
 --driver com.mysql.jdbc.Driver \
 --split-by id \
 --hcatalog-database ods \
@@ -179,12 +179,12 @@ sqoop import \
 --hcatalog-partition-values ${dt} \
 --hcatalog-storage-stanza 'stored as parquet tblproperties ("orc.compress"="SNAPPY")'
 
-echo 'storecenter.inbound_bill_detail'+${dt}
+echo 'tradecenter.inbound_bill_detail'+${dt}
 sqoop import \
---connect jdbc:mysql://10.2.0.92:3306/storecenter?serverTimezone=GMT%2B8 \
+--connect jdbc:mysql://10.2.0.92:3306/tradecenter?serverTimezone=GMT%2B8 \
 --username root \
 --password 123456 \
---query "select id,inbound_bill_id,order_id,order_detail_id,item_id,sku_id,item_name,item_type,sku_pic_url,sku_sale_attr,shop_sku_code,order_num,price,inbound_num,real_inbound_num,inbound_reel,real_inbound_reel,create_time,brand_id,cid from inbound_bill_detail where  \$CONDITIONS" \
+--query "select id,inbound_bill_id,order_id,order_detail_id,item_id,sku_id,item_name,item_type,sku_pic_url,sku_sale_attr,shop_sku_code,order_num,price,inbound_num,real_inbound_num,inbound_reel,real_inbound_reel,create_time,brand_id,cid from inbound_bill_detail where  date_format(create_time,'%Y%m%d') = ${dt} and  \$CONDITIONS" \
 --driver com.mysql.jdbc.Driver \
 --split-by id \
 --hcatalog-database ods \
@@ -193,8 +193,10 @@ sqoop import \
 --hcatalog-partition-values ${dt} \
 --hcatalog-storage-stanza 'stored as parquet tblproperties ("orc.compress"="SNAPPY")'
 
+# -----------------------------------------------
 echo 'tradecenter.outbound_bill'+${dt}
 sqoop import \
+--D mapred.job.queue.name=root.users \
 --connect jdbc:mysql://10.2.0.92:3306/tradecenter?serverTimezone=GMT%2B8 \
 --username root \
 --password 123456 \
@@ -210,6 +212,7 @@ sqoop import \
 
 echo 'tradecenter.outbound_bill_detail'+${dt}
 sqoop import \
+--D mapred.job.queue.name=root.users \
 --connect jdbc:mysql://10.2.0.92:3306/tradecenter?serverTimezone=GMT%2B8 \
 --username root \
 --password 123456 \
@@ -224,6 +227,7 @@ sqoop import \
 
 echo 'goodscenter.item_master'+${dt}
 sqoop import \
+--D mapred.job.queue.name=root.users \
 --connect jdbc:mysql://10.2.0.92:3306/goodscenter?serverTimezone=GMT%2B8 \
 --username root \
 --password 123456 \
@@ -353,7 +357,7 @@ sqoop import \
 --connect jdbc:mysql://10.2.0.92:3306/storecenter?serverTimezone=GMT%2B8 \
 --username root \
 --password 123456 \
---query "select id,user_id,shop_id,create_time,yn from shop_user_attention where  date_format(create_time,'%Y%m%d') = ${dt} and \$CONDITIONS" \
+--query "select id,user_id,shop_id,attend_group_count,group_total_amount,create_time,last_buy_time,yn from shop_user_attention where  date_format(create_time,'%Y%m%d') = ${dt} and \$CONDITIONS" \
 --driver com.mysql.jdbc.Driver \
 --split-by id \
 --hcatalog-database ods \

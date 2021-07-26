@@ -7,6 +7,8 @@ shop_id String,
 shop_name String,
 buyer_id String,
 buyer_name String,
+seller_id  String,
+seller_name  String,
 order_source String,
 paid int,
 refund int ,
@@ -16,6 +18,7 @@ country_name String,
 order_type String,
 po_type String, -- 采购
 cid bigint,
+cat_3d_name String,
 brand_id bigint,
 item_id bigint,
 sku_id bigint,
@@ -48,12 +51,15 @@ city_name String,
 country_name String,
 buyer_id String,
 buyer_name String,
+seller_id String,
+seller_name String,
 paid int,
 po_type String,
 freight_money decimal(10,2), --订单总运费
 order_id String,
 order_detail_id String,
 cid bigint,
+cat_3d_name String,
 brand_id bigint,
 item_id bigint,
 item_name String,
@@ -162,63 +168,56 @@ stored as parquet
 location '/user/hive/warehouse/dwd.db/dwd_dim_shop_store'
 tblproperties ("orc.compression"="snappy");
 
+create
+external table dwd.dwd_dim_warehouse_inout
+(
+in_shop_id int,
+in_warehouse_code int,
+in_warehouse_name String,
+in_item_id int,
+in_item_name String,
+in_sku_id int,
+in_price double,
+inbound_num double,
+out_shop_id int,
+out_warehouse_code int,
+out_warehouse_name String,
+out_item_id int,
+out_item_name String,
+out_sku_id int,
+out_price double,
+outbound_num double,
+types String
+)COMMENT '出入库信息'
+PARTITIONED BY (
+dt string
+)
+stored as parquet
+location '/user/hive/warehouse/dwd.db/dwd_dim_warehouse_inout'
+tblproperties ("orc.compression"="snappy");
 
 
-select
-    dt,
-    sum(orders_succeed_number) as 总订单金额,
-    sum(income_money) as 总收入,
-    sum(sale_order_number) as 总订单数,
-    sum(unit_price) as 客单价,
-    sum(refund_money) as 退款金额,
-    sum(pick_number) as 自提点订单金额,
-    sum(pick_order_number) as 自提点订单收入,
-    sum(pick_order_money) as 自提点订单数量,
-    sum(pick_income_money) as 自提点数量
-from (select dt,
-             orders_succeed_number,
-             income_money,
-             sale_order_number,
-             user_number,
-             cast(orders_succeed_number / user_number as decimal(10, 2)) unit_price,
-             0 as                                                        refund_money,
-             0 as                                                        pick_order_money,
-             0 as                                                        pick_income_money,
-             0 as                                                        pick_order_number,
-             0 as                                                        pick_number
-      from shop_deal_info
-      where shop_id=#{shop_id} and dt between #{start_time} and #{end_time} and order_type='all'
-      union all
-      select dt,
-          orders_succeed_number,
-          0            as income_money,
-          0            as sale_order_number,
-          0            as user_number,
-          0            as unit_price,
-          refund_money as refund_money,
-          0            as pick_order_money,
-          0            as pick_income_money,
-          0            as pick_order_number,
-          0            as pick_number
-      from shop_deal_refund_info
-      where shop_id=#{shop_id} and dt between #{start_time} and #{end_time} and order_type='all'
-      union all
-      select dt,
-          0 as orders_succeed_number,
-          0 as income_money,
-          0 as sale_order_number,
-          0 as user_number,
-          0 as unit_price,
-          0 as refund_money,
-          pick_number,
-          pick_order_number,
-          pick_order_money,
-          pick_income_money
-      from shop_deal_self_pick_info
-      where shop_id=#{shop_id} and dt between #{start_time} and #{end_time}
-     ) a
-group by dt
 
+create
+external table dwd.dwd_inbound_bill_record
+(
+shop_id int,
+item_name String,
+sku_code String,
+warehouse_code bigint,
+warehouse_name String,
+brand_id int,
+brand_name String,
+inbound_num double,
+total_money double,
+price double
+)COMMENT '入库详情'
+PARTITIONED BY (
+dt string
+)
+stored as parquet
+location '/user/hive/warehouse/dwd.db/dwd_inbound_bill_record'
+tblproperties ("orc.compression"="snappy");
 
 
 

@@ -230,7 +230,6 @@ class WarehouseAnalysis(spark: SparkSession,var dt: String, timeFlag: String) ex
     //----------- 商品出库信息
     spark.sql(
       """
-        |
         |select
         |t1.shop_id,
         |t1.warehouse_code,
@@ -244,6 +243,8 @@ class WarehouseAnalysis(spark: SparkSession,var dt: String, timeFlag: String) ex
         |outbound_bill_detail t2
         |on t1.id = t2.outbound_bill_id
         |""".stripMargin).createOrReplaceTempView("outbound_merge_detail")
+
+
     //商品维度 以入库表为主表,算出既有入库又有出库的商品
     val skuInOut = spark.sql(
       s"""
@@ -381,6 +382,14 @@ class WarehouseAnalysis(spark: SparkSession,var dt: String, timeFlag: String) ex
 
     val shopWarehouseInoutDF = skuInOut.union(warehouseInOut)
     writerMysql(shopWarehouseInoutDF, "shop_warehouse_inout", flag)
+
+
+
+
+
+
+
+
     //-----------------------------------库存成本
     //商品维度
     val skuDf = spark.sql(

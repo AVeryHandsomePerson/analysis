@@ -310,6 +310,35 @@ tblproperties ("orc.compression"="snappy");
 
 
 create
+external table dwd.dwd_click_logs
+(
+    domain String comment '域',
+    ip bigint comment 'IP地址',
+    referrer String comment '上级url',
+    shop_id String comment '店铺ID',
+    timeIn String comment '进入时间',
+    title String comment '头',
+    url String comment 'url',
+    event String comment '事件',
+    page_source String comment '渠道类型',
+    page_type String comment '事件类型',
+    loginToken String,
+    item_id String comment '店铺ID',
+    sku_id String comment '商品ID',
+    user_id String comment '用户ID',
+    province String comment '省',
+    city String comment '市'
+)COMMENT '埋点信息记录'
+PARTITIONED BY (
+dt string
+)
+stored as parquet
+location '/user/hive/warehouse/dwd.db/dwd_click_logs'
+tblproperties ("orc.compression"="snappy");
+
+
+
+create
 external table dwd.dwd_dim_outbound_bill
 (
    id bigint,

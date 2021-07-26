@@ -1,7 +1,7 @@
 create
 external table ods.ods_inbound_bill
 (
-   `id` bigint,
+  `id` bigint,
   `sign_bill_id` bigint comment '签收单ID',
   `type` int comment '入库单类型 1:B采购入库 2：B销售退货入库 3:手工创建 4:分切成品入库 5:分切单卷筒芯入库 6:调拨入库 7:虚拟销售入库 8：虚拟采购入库 9:虚拟销售退货出库 10：虚拟采购退货出库',
   `order_id` bigint comment '采购单号',

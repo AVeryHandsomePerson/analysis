@@ -143,10 +143,13 @@ create table ods.ods_shop_user_attention
     id          bigint,
     user_id     bigint,
     shop_id     bigint,
+    attend_group_count     bigint comment '参团数',
+    group_total_amount     bigint comment '团购总金额',
     create_time String,
+    last_buy_time String comment '最后一次购买时间',
     yn          int
 )
-comment '用户关注店铺'
+comment '用户关注店铺 包含团购信息'
 PARTITIONED BY (
   dt string
 )

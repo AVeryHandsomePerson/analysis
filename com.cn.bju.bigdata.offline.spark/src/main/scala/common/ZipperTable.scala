@@ -1019,6 +1019,108 @@ object ZipperTable {
          |       date_format(create_time, 'yyyyMMdd')
          |from ods_outbound_bill_tmp
          |""".stripMargin)
+    //入库拉链表
+    spark.sql(
+      s"""
+         |select
+         |*
+         |from
+         |ods.ods_inbound_bill
+         |where dt =$dt
+         |""".stripMargin).createOrReplaceTempView("ods_inbound_bill_tmp")
+    spark.sql(
+      s"""
+         |insert overwrite table dwd.fact_inbound_bill
+         |select
+         |a.id,
+         |a.sign_bill_id,
+         |a.type,
+         |a.order_id,
+         |a.seller_id,
+         |a.shop_id,
+         |a.shop_name,
+         |a.status,
+         |a.order_amount,
+         |a.inbound_amount,
+         |a.purchase_date,
+         |a.create_time,
+         |a.audit_time,
+         |a.audit_user_id,
+         |a.audit_username,
+         |a.audit_remark,
+         |a.modify_time,
+         |a.modify_user,
+         |a.warehouse_code,
+         |a.warehouse_name,
+         |a.supplier_shop_id,
+         |a.supplier_shop_name,
+         |a.manage_user_id,
+         |a.manage_username,
+         |a.org_code,
+         |a.org_parent_code,
+         |a.inbound_remark,
+         |a.operate_user_id,
+         |a.operate_user_name,
+         |a.operate_time,
+         |a.cut_order_id,
+         |a.customer_shop_id,
+         |a.customer_shop_name,
+         |a.is_refuse_receive,
+         |a.create_zipper_time,
+         |case when b.id is not null and a.end_zipper_time = '9999-12-31'
+         |then '$yesterDayDateTime' else a.end_zipper_time  end as end_zipper_time,
+         |a.dt
+         |from
+         |(select * from dwd.fact_inbound_bill where dt >  $yesterDay ) a
+         |left join
+         |ods_inbound_bill_tmp b
+         |on a.id = b.id
+         |union all
+         |select id,
+         |       sign_bill_id,
+         |       type,
+         |       order_id,
+         |       seller_id,
+         |       shop_id,
+         |       shop_name,
+         |       status,
+         |       order_amount,
+         |       inbound_amount,
+         |       purchase_date,
+         |       create_time,
+         |       audit_time,
+         |       audit_user_id,
+         |       audit_username,
+         |       audit_remark,
+         |       modify_time,
+         |       modify_user,
+         |       warehouse_code,
+         |       warehouse_name,
+         |       supplier_shop_id,
+         |       supplier_shop_name,
+         |       manage_user_id,
+         |       manage_username,
+         |       org_code,
+         |       org_parent_code,
+         |       inbound_remark,
+         |       operate_user_id,
+         |       operate_user_name,
+         |       operate_time,
+         |       cut_order_id,
+         |       customer_shop_id,
+         |       customer_shop_name,
+         |       is_refuse_receive,
+         |       to_date(create_time) as create_zipper_time,
+         |       '9999-12-31'         as end_zipper_time,
+         |       date_format(create_time, 'yyyyMMdd')
+         |from ods_inbound_bill_tmp
+         |""".stripMargin)
+
+
+
+
+
+
     /**
      *用户拉链表
      */

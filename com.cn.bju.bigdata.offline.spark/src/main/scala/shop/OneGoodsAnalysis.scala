@@ -177,6 +177,7 @@ class OneGoodsAnalysis(spark: SparkSession,var dt: String, timeFlag: String) ext
      * 2.取店铺下每个用户访问的最后一条浏览记录，判断是否是详情页
      * 3.如果是 详情页，记录访问的 商品ID 如果不是则不做累计
      */
+
     // 先计算 登录用户，最后一个访问记录是商品的数量
     spark.sql(
       """
@@ -248,6 +249,7 @@ class OneGoodsAnalysis(spark: SparkSession,var dt: String, timeFlag: String) ext
         |where page_type = 'goods'
         |group by shopId,skuId
         |""".stripMargin).createOrReplaceTempView("tourist")
+
     //获取每个商品的不同用户的停留时长
     spark.sql(
       """
