@@ -88,10 +88,26 @@ case class OrderDBEntity(@BeanProperty orderId: Long, // '订单编号',
                          @BeanProperty expectReceiveTime: String, // '期望收货时间',
                          @BeanProperty deliveryRemark: String, // '发货备注'
                          @BeanProperty subMchId: String, // '子商户号'
+
+                         @BeanProperty orderCancelTime:    String,
+                         @BeanProperty distributionFlag:     Int,
+                         @BeanProperty disShopId:    Int,
+                         @BeanProperty disUserId:    Int,
+                         @BeanProperty disSubMchId:    String,
+                         @BeanProperty totalCommission:     Double,
+                         @BeanProperty chainStoreId:    Int,
+                         @BeanProperty groupLeaderShopId:   Int,
+                         @BeanProperty groupLeaderUserId:   Int,
+                         @BeanProperty groupLeaderMchId:    String,
+                         @BeanProperty groupPurchaseCommission :Double,
+                         @BeanProperty groupLeaderRemark:     String,
+                         @BeanProperty groupPurchaseCode:     String,
+                         @BeanProperty needInvoiceFlag:     Int,
+
                          @BeanProperty eventType: String, //操作类型
                          @BeanProperty hour: String,  //小时
                          @BeanProperty day: String,    //天
-                         @BeanProperty oldNewUser: String    //天
+                         @BeanProperty oldNewUser: String    //判断是否 为新用户
                         )
 
 /**
@@ -177,6 +193,22 @@ object OrderDBEntity {
       rowData.getColumns.get("expect_receive_time"),
       rowData.getColumns.get("delivery_remark"),
       rowData.getColumns.get("sub_mchId"),
+
+      rowData.getColumns.get("order_cancel_time"),
+      CommonUtils.isNotNull(rowData.getColumns.get("distribution_flag")).toInt,
+      CommonUtils.isNotNull(rowData.getColumns.get("dis_shop_id")).toInt,
+      CommonUtils.isNotNull(rowData.getColumns.get("dis_user_id")).toInt,
+      rowData.getColumns.get("dis_sub_mchId"),
+      if(rowData.getColumns.get("total_commission").isEmpty) 0.00 else rowData.getColumns.get("total_commission").toDouble,
+      CommonUtils.isNotNull(rowData.getColumns.get("chain_store_id")).toInt,
+      CommonUtils.isNotNull(rowData.getColumns.get("group_leader_shop_id")).toInt,
+      CommonUtils.isNotNull(rowData.getColumns.get("group_leader_user_id")).toInt,
+      rowData.getColumns.get("group_leader_mchId"),
+      if(rowData.getColumns.get("group_purchase_commission").isEmpty) 0.00 else rowData.getColumns.get("group_purchase_commission").toDouble,
+      rowData.getColumns.get("group_leader_remark"),
+      rowData.getColumns.get("group_purchase_code"),
+      CommonUtils.isNotNull(rowData.getColumns.get("need_invoice_flag")).toInt,
+
       eventType,
       dataTime.toString("HH"),
       dataTime.toString("yyyy-MM-dd"),

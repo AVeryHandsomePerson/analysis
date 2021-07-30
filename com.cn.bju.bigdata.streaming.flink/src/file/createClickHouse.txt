@@ -103,14 +103,26 @@ selfPickFlag         Int32           , \
 expectReceiveTime    String        , \
 deliveryRemark        String          , \
 subMchId              String, \
+orderCancelTime         String            comment '订单取消时间', \
+distributionFlag         Int32            comment '分销订单标识 0：普通订单 1：分销订单', \
+disShopId               Int64             comment '分销店铺ID', \
+disUserId               Int64             comment '分销用户ID', \
+disSubMchId             String            comment '分销二级商户号', \
+totalCommission          decimal(14, 2)    ,   \
+chainStoreId            Int64             comment '连锁门店id', \
+groupLeaderShopId      Int64              comment '团长店铺ID', \
+groupLeaderUserId      Int64              comment '团长用户ID', \
+groupLeaderMchId        String            comment '团长商户号', \
+groupPurchaseCommission decimal(14, 2)    comment '团购佣金', \
+groupLeaderRemark       String            comment '团长备注', \
+groupPurchaseCode       String            comment '团购活动编码', \
+needInvoiceFlag         Int32             comment '团购订单是否开票：1，否；2，是；', \
 eventType              String, \
 hour              String, \
 day              String, \
 oldNewUser       String \
 ) \
 ENGINE = Kafka('bogon2:9092,bogon:9092,bogon3:9092', 'dwd_order', 'group', 'JSONEachRow');
-
-
 
 //创建本地表
 CREATE TABLE dwd_order on cluster bip_ck_cluster ( \
@@ -200,8 +212,20 @@ PARTITION BY (day,hour) \
 ORDER BY (orderId,day,hour) \
 SETTINGS index_granularity = 8192;
 
-
-
+ALTER TABLE dwd_order_all ADD COLUMN  orderCancelTime String AFTER subMchId
+ALTER TABLE dwd_order_all ADD COLUMN  distributionFlag  String AFTER orderCancelTime
+ALTER TABLE dwd_order_all ADD COLUMN  disShopId  String AFTER distributionFlag
+ALTER TABLE dwd_order_all ADD COLUMN  disUserId  String AFTER disShopId
+ALTER TABLE dwd_order_all ADD COLUMN  disSubMchId  String AFTER disUserId
+ALTER TABLE dwd_order_all ADD COLUMN  totalCommission  String AFTER disSubMchId
+ALTER TABLE dwd_order_all ADD COLUMN  chainStoreId  String AFTER totalCommission
+ALTER TABLE dwd_order_all ADD COLUMN  groupLeaderShopId  String AFTER chainStoreId
+ALTER TABLE dwd_order_all ADD COLUMN  groupLeaderUserId  String AFTER groupLeaderShopId
+ALTER TABLE dwd_order_all ADD COLUMN  groupLeaderMchId  String AFTER groupLeaderUserId
+ALTER TABLE dwd_order_all ADD COLUMN  groupPurchaseCommission  String AFTER groupLeaderMchId
+ALTER TABLE dwd_order_all ADD COLUMN  groupLeaderRemark  String AFTER groupPurchaseCommission
+ALTER TABLE dwd_order_all ADD COLUMN  groupPurchaseCode  String AFTER groupLeaderRemark
+ALTER TABLE dwd_order_all ADD COLUMN  needInvoiceFlag  String AFTER groupPurchaseCode
 //增加字段
 ALTER TABLE dwd_order_all on cluster bip_ck_cluster ADD COLUMN oldNewUser String
 
@@ -285,7 +309,8 @@ deliveryRemark        String          , \
 subMchId              String, \
 eventType              String, \
 hour              String, \
-day              String \
+day              String, \
+oldNewUser       String \
 ) \
 engine = Distributed(bip_ck_cluster,default, dwd_order,hiveHash(orderId)) ;
 
@@ -541,6 +566,8 @@ itemId Int64, \
 skuId Int64, \
 orderNum Double, \
 price Double, \
+buyerShopId String, \
+buyerShopName String, \
 createTime String, \
 hour String, \
 day String \
@@ -559,15 +586,17 @@ itemId Int64, \
 skuId Int64, \
 orderNum Double, \
 price Double, \
+buyerShopId String, \
+buyerShopName String, \
 createTime String, \
 hour String, \
 day String \
 ) \
-ENGINE = MergeTree()\
+ENGINE = ReplacingMergeTree(id)\
+primary key id \
 PARTITION BY (day,hour) \
-ORDER BY (day,hour) \
+ORDER BY (id,day,hour) \
 SETTINGS index_granularity = 8192;
-
 
 create table dwd_outbound_bill_detail_all on cluster bip_ck_cluster \
 ( \
@@ -582,6 +611,8 @@ itemId Int64, \
 skuId Int64, \
 orderNum Double, \
 price Double, \
+buyerShopId String, \
+buyerShopName String, \
 createTime String, \
 hour String, \
 day String \
@@ -591,6 +622,7 @@ engine = Distributed(bip_ck_cluster,default, dwd_outbound_bill_detail_cluster,hi
 CREATE MATERIALIZED VIEW dwd_outbound_bill_detail_view TO dwd_outbound_bill_detail_all \
 AS SELECT * FROM dwd_outbound_bill_detail;
 
+//--------------------------------------------------------------------
 
 
 

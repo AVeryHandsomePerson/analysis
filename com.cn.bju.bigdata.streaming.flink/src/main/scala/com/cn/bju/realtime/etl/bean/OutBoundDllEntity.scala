@@ -11,7 +11,9 @@ case class OutBoundDllEntity(
                               @BeanProperty types: Int, // 出库类型
                               @BeanProperty orderId: Long, // 订单ID
                               @BeanProperty shopId: String, // 店铺
-                              @BeanProperty create_time: String
+                              @BeanProperty create_time: String,
+                              @BeanProperty buyer_shop_id: String,
+                              @BeanProperty buyer_shop_name: String
                             )
 
 case class OutBoundBillDetail(
@@ -37,7 +39,9 @@ case class OutBoundBillResultEvent(
                                     @BeanProperty skuId: Long, // SKU_ID
                                     @BeanProperty orderNum: Double, // 订单数量
                                     @BeanProperty price: Double, // 价钱
-                                    @BeanProperty createTime: String, // 价钱
+                                    @BeanProperty buyerShopId: String,
+                                    @BeanProperty buyerShopName: String,
+                                    @BeanProperty createTime: String,
                                     @BeanProperty hour: String, //小时
                                     @BeanProperty day: String //天
                                   )

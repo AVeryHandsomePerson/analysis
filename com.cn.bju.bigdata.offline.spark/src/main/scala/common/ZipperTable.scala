@@ -17,6 +17,7 @@ object ZipperTable {
     val dt = args(0)
     val yesterDayDateTime = new DateTime(DateUtils.parseDate(dt, "yyyyMMdd")).minusDays(1).toString("yyyy-MM-dd")
     val yesterDay = new DateTime(DateUtils.parseDate(dt, "yyyyMMdd")).minusDays(1).toString("yyyyMMdd")
+    val orderFailureTime = new DateTime(DateUtils.parseDate(dt, "yyyyMMdd")).minusDays(14).toString("yyyyMMdd")
     /**
      * 订单拉链表
      */
@@ -104,6 +105,21 @@ object ZipperTable {
          |a.self_pick_flag          ,
          |a.expect_receive_time     ,
          |a.delivery_remark         ,
+         |a.sub_mchId,
+         |a.order_cancel_time,
+         |a.distribution_flag,
+         |a.dis_shop_id,
+         |a.dis_user_id,
+         |a.dis_sub_mchId,
+         |a.total_commission,
+         |a.chain_store_id,
+         |a.group_leader_shop_id,
+         |a.group_leader_user_id,
+         |a.group_leader_mchId,
+         |a.group_purchase_commission,
+         |a.group_leader_remark,
+         |a.group_purchase_code,
+         |a.need_invoice_flag,
          |a.create_zipper_time,
          |case when b.order_id is not null and a.end_zipper_time ='9999-12-31'
          |then '$yesterDayDateTime'
@@ -190,6 +206,21 @@ object ZipperTable {
          |self_pick_flag          ,
          |expect_receive_time     ,
          |delivery_remark         ,
+         |sub_mchId,
+         |order_cancel_time,
+         |distribution_flag,
+         |dis_shop_id,
+         |dis_user_id,
+         |dis_sub_mchId,
+         |total_commission,
+         |chain_store_id,
+         |group_leader_shop_id,
+         |group_leader_user_id,
+         |group_leader_mchId,
+         |group_purchase_commission,
+         |group_leader_remark,
+         |group_purchase_code,
+         |need_invoice_flag,
          |case when modify_time is not null
          |then to_date(modify_time) else to_date(create_time)
          |end as create_zipper_time,
@@ -198,6 +229,8 @@ object ZipperTable {
          |from
          |oders_tmp
          |""".stripMargin)
+
+
     /**
      * 订单明细拉链表
      * 去除
@@ -1115,12 +1148,6 @@ object ZipperTable {
          |       date_format(create_time, 'yyyyMMdd')
          |from ods_inbound_bill_tmp
          |""".stripMargin)
-
-
-
-
-
-
     /**
      *用户拉链表
      */
@@ -1216,7 +1243,55 @@ object ZipperTable {
          |date_format(create_time, 'yyyyMMdd')
          |from user
          |""".stripMargin)
-
+    /**
+     * 团购拉链表
+     *  同步: 创建时间为前一天的,和最后一次购买时间为前一天的数据
+     *  过滤:user_id 为空的 创建时间为null的
+     */
+    spark.sql(
+      s"""
+        |select
+        |*
+        |from
+        |ods.ods_shop_user_attention
+        |where dt =$dt and create_time is not null and user_id is not null
+        |""".stripMargin).createOrReplaceTempView("shop_user_attention")
+    spark.sql(
+      s"""
+         |insert overwrite table dwd.fact_shop_user_attention
+         |select
+         |a.id,
+         |a.user_id,
+         |a.shop_id,
+         |a.attend_group_count,
+         |a.group_total_amount,
+         |a.create_time,
+         |a.last_buy_time,
+         |a.yn,
+         |a.create_zipper_time,
+         |case when b.id is not null and a.end_zipper_time = '9999-12-31'
+         |then '$yesterDayDateTime' else a.end_zipper_time  end as end_zipper_time,
+         |a.dt
+         |from
+         |(select * from dwd.fact_shop_user_attention) a
+         |left join
+         |shop_user_attention b
+         |on a.id = b.id
+         |union all
+         |select
+         |id,
+         |user_id,
+         |shop_id,
+         |attend_group_count,
+         |group_total_amount,
+         |create_time,
+         |last_buy_time,
+         |yn,
+         |to_date(create_time) as create_zipper_time,
+         |'9999-12-31'         as end_zipper_time,
+         |date_format(create_time, 'yyyyMMdd')
+         |from shop_user_attention
+         |""".stripMargin)
 
 
   }

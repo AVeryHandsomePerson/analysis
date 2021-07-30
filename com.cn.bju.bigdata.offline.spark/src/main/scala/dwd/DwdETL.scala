@@ -102,6 +102,28 @@ class DwdETL(spark: SparkSession, dt: String) {
          |where level = 1 and  dt=$dt) t1
          |on t2.parent_cid = t1.cid
          |""".stripMargin).createOrReplaceTempView("dim_goods_cat")
+    /**
+     * 出库订单表
+     * 订单 和 出库表关联 过滤出渠道订单信息
+     * 关联上自提点维度
+     * TB 渠道订单信息 从该表输出
+     * */
+    spark.sql(
+      s"""
+         |select
+         |*
+         |from
+         |dwd.fact_outbound_bill
+         |where dt=$dt and shop_id is not null and end_zipper_time = '9999-12-31'
+         |""".stripMargin).createOrReplaceTempView("outbound_bill")
+    spark.sql(
+      s"""
+         |select
+         |*
+         |from
+         |ods.ods_outbound_bill_detail
+         |where dt=$dt
+         |""".stripMargin).createOrReplaceTempView("outbound_bill_detail")
     // dwd.dwd_fact_order_info 订单明细事务表 dwd.dwd_fact_order_info
     spark.sql(
       s"""
@@ -110,8 +132,8 @@ class DwdETL(spark: SparkSession, dt: String) {
          |a.order_id,
          |a.shop_id,
          |a.shop_name,
-         |a.buyer_id,
-         |user.name as buyer_name,
+         |case when a.buyer_id is null then l.buyer_shop_id  else a.buyer_id end as buyer_id,
+         |case when a.buyer_id is null then l.buyer_shop_name else user.name end as buyer_name,
          |b.seller_id,
          |e.name as seller_name,
          |a.order_source,
@@ -139,6 +161,8 @@ class DwdETL(spark: SparkSession, dt: String) {
          |b.cost_price,--订单成本价
          |b.payment_price, --订单支付价
          |cast(b.num as decimal(24,2)) as payment_num, -- 支付数量
+         |b.item_original_price,--商品原始价格
+         |a.group_purchase_commission,
          |$dt
          |from
          |orders a
@@ -160,30 +184,10 @@ class DwdETL(spark: SparkSession, dt: String) {
          |left join
          |dim_goods_cat
          |on b.cid = dim_goods_cat.cat_3d_id
+         |left join
+         |outbound_bill l
+         |on a.order_id = l.order_id
          |""".stripMargin)
-
-    /**
-     * 出库订单表
-     * 订单 和 出库表关联 过滤出渠道订单信息
-     * 关联上自提点维度
-     * TB 渠道订单信息 从该表输出
-     * */
-    spark.sql(
-      s"""
-         |select
-         |*
-         |from
-         |dwd.fact_outbound_bill
-         |where dt=$dt and shop_id is not null and end_zipper_time = '9999-12-31'
-         |""".stripMargin).createOrReplaceTempView("outbound_bill")
-    spark.sql(
-      s"""
-         |select
-         |*
-         |from
-         |ods.ods_outbound_bill_detail
-         |where dt=$dt
-         |""".stripMargin).createOrReplaceTempView("outbound_bill_detail")
     // dwd.dwd_fact_outbound_bill_info
     spark.sql(
       s"""
@@ -195,8 +199,8 @@ class DwdETL(spark: SparkSession, dt: String) {
          |f.province_name,
          |f.city_name,
          |f.country_name,
-         |b.buyer_id,
-         |user.name as buyer_name,
+         |a.buyer_shop_id as buyer_id,
+         |ifNull(user.name,a.buyer_shop_name) as buyer_name,
          |d.seller_id,
          |s.name as seller_name,
          |b.paid,
@@ -217,6 +221,8 @@ class DwdETL(spark: SparkSession, dt: String) {
          |c.price as payment_price,
          |d.cost_price,
          |d.sku_pic_url,
+         |d.item_original_price, --商品原始价格
+         |b.group_purchase_commission, --团购利润
          |$dt
          |from
          |outbound_bill a
@@ -227,6 +233,7 @@ class DwdETL(spark: SparkSession, dt: String) {
          |freight_money,
          |buyer_id,
          |order_type,
+         |group_purchase_commission,
          |paid
          |from
          |orders
@@ -305,6 +312,16 @@ class DwdETL(spark: SparkSession, dt: String) {
          |where dt= $dt
          |group by refund_id
          |""".stripMargin).createOrReplaceTempView("refund_process")
+    // 团购订单
+    spark.sql(
+      """
+        |select
+        |order_id,
+        |'TG' as order_type
+        |from
+        |orders
+        |where order_type = 11
+        |""".stripMargin).createOrReplaceTempView("group_order_type")
     // dwd.dwd_fact_order_refund_info
     spark.sql(
       s"""
@@ -325,7 +342,8 @@ class DwdETL(spark: SparkSession, dt: String) {
          |a.refund_status,
          |a.refund_reason,
          |a.po_type,
-         |a.order_type,
+         |case when d.order_type is null or d.order_type = '' then a.order_type
+         |     else d.order_type end as order_type,
          |nvl(cast((unix_timestamp(max_time,'yyyy-MM-dd HH:mm:ss') - unix_timestamp(min_time,'yyyy-MM-dd HH:mm:ss'))/60 as decimal(10,2)),0) as avg_time, --平均处理时间
          |$dt
          |from
@@ -336,13 +354,15 @@ class DwdETL(spark: SparkSession, dt: String) {
          |left join
          |refund_process c
          |on a.id = c.refund_id
+         |left join
+         |group_order_type d
+         |on
+         |a.order_id = d.order_id
          |""".stripMargin)
     // dwd.dwd_click_log
-
     // 埋点
-
     val success = Try(spark.read.json(s"hdfs://bogon:8020/click_log/${dt}/")).isSuccess
-    if(success){
+    if (success) {
       spark.read.json(s"hdfs://bogon:8020/click_log/${dt}/")
         .where(
           (col("event") =!= "null") &&
@@ -377,7 +397,6 @@ class DwdETL(spark: SparkSession, dt: String) {
            |""".stripMargin)
     }
 
-
     /**
      * 用户购物轨迹 表
      *     1. 先根据订单得到今日 订单用户
@@ -389,19 +408,22 @@ class DwdETL(spark: SparkSession, dt: String) {
       s"""
          |select
          |distinct
-         |shop_id,
+         |a.shop_id,
          |case when order_type = 1 then "TC"
+         |     when order_type = 11 then "TG"
          |     when order_type != 1 and order_type != 11 then "TB" end as order_type,
          |case when (order_type = 6 or order_type = 8) then "PO" end as po_type,
-         |paid,
-         |buyer_id,
-         |to_date(create_time) as first_time,
+         |a.paid,
+         |case when a.buyer_id is null then l.buyer_shop_id  else a.buyer_id end as buyer_id,
+         |to_date(a.create_time) as first_time,
          |null as last_time,
-         |to_date(create_time) final_time,
+         |to_date(a.create_time) final_time,
          |$dt as dt
          |from
-         |orders
-         |where  buyer_id is not null
+         |orders a
+         |left join
+         |outbound_bill l
+         |on a.order_id = l.order_id
          |""".stripMargin).createOrReplaceTempView("order_user")
     spark.sql(
       s"""
@@ -422,6 +444,7 @@ class DwdETL(spark: SparkSession, dt: String) {
       s"""
          |insert overwrite table dwd.dwd_dim_order_user_locus
          |select
+         |distinct
          |a.shop_id,
          |a.order_type,
          |a.po_type,
@@ -434,7 +457,9 @@ class DwdETL(spark: SparkSession, dt: String) {
          |from
          |dwd_dim_order_user_locus  a
          |left join
-         |order_user b
+         |(select
+         |*
+         |from order_user where buyer_id is not null) b
          |on a.shop_id = b.shop_id and a.buyer_id=b.buyer_id
          |where b.buyer_id is not null
          |union all
@@ -451,11 +476,14 @@ class DwdETL(spark: SparkSession, dt: String) {
          |from
          |dwd_dim_order_user_locus  a
          |left join
-         |order_user b
+         |(select
+         |*
+         |from order_user where buyer_id is not null) b
          |on a.shop_id = b.shop_id and a.buyer_id=b.buyer_id
          |where b.buyer_id is null
          |union all
          |select
+         |distinct
          |b.shop_id,
          |b.order_type,
          |b.po_type,
@@ -468,11 +496,12 @@ class DwdETL(spark: SparkSession, dt: String) {
          |from
          |dwd_dim_order_user_locus  a
          |right join
-         |order_user b
+         |(select
+         |*
+         |from order_user where buyer_id is not null) b
          |on a.shop_id = b.shop_id and a.buyer_id=b.buyer_id
          |where a.buyer_id is null
          |""".stripMargin)
-
     // 会员数据
     spark.sql(
       s"""
@@ -592,48 +621,6 @@ class DwdETL(spark: SparkSession, dt: String) {
          |dwd.dwd_dim_shop_store
          |where dt = '$yesterDay'
          |""".stripMargin)
-    // 团购信息
-    spark.sql(
-      s"""
-         |select
-         |id,
-         |user_id,
-         |shop_id,
-         |attend_group_count,
-         |group_total_amount,
-         |create_time,
-         |last_buy_time,
-         |yn
-         |from ods.ods_shop_user_attention
-         |where dt=$dt
-         |""".stripMargin).createOrReplaceTempView("group_buying")
-    spark.sql(
-      s"""
-         |select
-         |shop_id,
-         |vip_name,
-         |user_id,
-         |user_grade_code,
-         |grade_name,
-         |vip_status,
-         |create_time,
-         |$dt
-         |from
-         |ods.ods_user_statistics
-         |where dt = $dt and shop_id is not null
-         |""".stripMargin).createOrReplaceTempView("ods_user_statistics")
-    //    group_buying
-    spark.sql(
-      s"""
-         |select
-         |shop_id,
-         |count(1) as attention_number,
-         |count(case when dt = $dt then 1 end) as new_attention_number
-         |from
-         |ods.ods_shop_user_attention
-         |group by shop_id
-         |""".stripMargin).createOrReplaceTempView("user_all_attention")
-
     // 仓库信息
     // 入库消息
     spark.sql(
@@ -778,32 +765,28 @@ class DwdETL(spark: SparkSession, dt: String) {
          |""".stripMargin).createOrReplaceTempView("warehouse")
     spark.sql(
       s"""
-        |insert overwrite table dwd.dwd_inbound_bill_record
-        |select
-        |a.shop_id,
-        |a.item_name,
-        |a.sku_code,
-        |a.warehouse_code,
-        |c.name as warehouse_name,
-        |a.brand_id,
-        |b.brand_name,
-        |nvl(a.total_money,0.0),
-        |nvl(a.inbound_num,0.0),
-        |nvl(a.price,0.0),
-        |$dt
-        |from
-        |inbound_bill_record a
-        |left join
-        |item_brand b
-        |on a.brand_id = b.brand_id
-        |left join
-        |warehouse c
-        |on a.warehouse_code = c.code
-        |""".stripMargin)
-
-
-
-
+         |insert overwrite table dwd.dwd_inbound_bill_record
+         |select
+         |a.shop_id,
+         |a.item_name,
+         |a.sku_code,
+         |a.warehouse_code,
+         |c.name as warehouse_name,
+         |a.brand_id,
+         |b.brand_name,
+         |nvl(a.inbound_num,0.0) as inbound_num,
+         |nvl(a.total_money,0.0) as total_money,
+         |nvl(a.price,0.0),
+         |$dt
+         |from
+         |inbound_bill_record a
+         |left join
+         |item_brand b
+         |on a.brand_id = b.brand_id
+         |left join
+         |warehouse c
+         |on a.warehouse_code = c.code
+         |""".stripMargin)
 
 
   }

@@ -182,13 +182,13 @@ CREATE TABLE off_line_dws.dws_shop_warehouse_inout on cluster bip_ck_cluster
     in_warehouse_code  String,
     in_item_id         String,
     in_item_name       String,
-    in_price           Decimal(10, 2),
-    inbound_num        Decimal(10, 2),
+    in_price           Decimal(10, 4),
+    inbound_num        Decimal(10, 4),
     out_warehouse_code String,
     out_item_id        String,
     out_item_name      String,
-    out_price          Decimal(10, 2),
-    outbound_num       Decimal(10, 2),
+    out_price          Decimal(10, 4),
+    outbound_num       Decimal(10, 4),
     types              String,
     dt                 String
     )
@@ -198,7 +198,163 @@ CREATE TABLE off_line_dws.dws_shop_warehouse_inout on cluster bip_ck_cluster
     SETTINGS index_granularity = 8192;
 
 
+CREATE TABLE off_line_dws.dws_shop_group_user_info on cluster bip_ck_cluster
+(
+    id                 String,
+    user_id            String,
+    shop_id            String,
+    attend_group_count Int64,
+    group_total_amount Decimal(20, 2),
+    create_time        String,
+    last_buy_time      String,
+    dt                 String
+    )
+    ENGINE = MergeTree()
+    PARTITION BY (dt)
+    ORDER BY (shop_id)
+    SETTINGS index_granularity = 8192;
+
 ---------------------------------- 移动H5
+
+
+-- 移动端H5-离线-全部数据-核心数据
+
+-- b.totalMoney   as "总订单金额",
+--        b.orderNumber  as "总订单数",
+--        b.userNumber   as "总下单人数",
+--        a.income_money as "总收入",
+--        c.uv           as "浏览人数",
+--        c.pv           as "浏览次数",
+--        b.newUser      as "新下单用户",
+--        d.refund_money as "退款金额"
+-- 移动端H5-离线-全部数据-概况-核心
+select `总订单金额`,
+       `总订单数`,
+       `总下单人数`,
+       `总收入`,
+       `浏览人数`,
+       `浏览次数`,
+       c.`新下单用户` as `新下单用户`,
+       d.`退款金额`  as `退款金额`
+from (
+         select shop_id,
+                sum(payment_money)       as "总订单金额",
+                sum(sale_order_number)   as "总订单数",
+                count(distinct buyer_id) as "总下单人数",
+                sum(income_money)        as "总收入"
+         from dws_shop_deal_info
+         where shop_id = '2000000027'
+           and order_type = 'ALL'
+           and dt between '2021-07-21' and '2021-07-21'
+         group by shop_id
+     ) a
+    all
+         full join (
+    select shop_id,
+           count(distinct if(loginToken is null or loginToken = '', ip, loginToken)) as "浏览人数",
+           sum(pv)                                                                      "浏览次数"
+    from dws_shop_clicklog_info
+    where shop_id = '2000000027'
+      and dt between '2021-07-21' and '2021-07-21'
+    group by shop_id
+    ) b
+on a.shop_id = b.shop_id
+    all
+    full join (
+    select shop_id,
+    count(distinct case when paid = '2' and last_time = '' then buyer_id end) as "新下单用户"
+    from dws_shop_client_info
+    where shop_id = '2000000027'
+    and dt between '2021-07-21' and '2021-07-21'
+    group by shop_id
+    ) c
+    on a.shop_id = c.shop_id
+    all
+    full join (
+    select shop_id,
+    sum(refund_money) as "退款金额"
+    from dws_shop_deal_refund_info
+    where shop_id = '2000000027'
+    and order_type = 'ALL'
+    and dt between '2021-07-21' and '2021-07-21'
+    group by shop_id
+    ) d
+    on a.shop_id = d.shop_id;
+-- 移动端H5-离线-全部数据-概况-趋势
+select case
+           when a.dt = '' and b.dt = '' and c.dt = ''
+               then d.dt
+           when d.dt = '' and b.dt = '' and c.dt = ''
+               then a.dt
+           when a.dt = '' and b.dt = '' and d.dt = ''
+               then c.dt
+           when a.dt = '' and c.dt = '' and c.dt = ''
+               then b.dt
+           else a.dt
+           end
+                 as "时间",
+       a.dt,
+       b.dt,
+       c.dt,
+       d.dt,
+       `总订单金额`,
+       `总订单数`,
+       `总下单人数`,
+       `总收入`,
+       `浏览人数`,
+       `浏览次数`,
+       c.`新下单用户` as `新下单用户`,
+       d.`退款金额`  as `退款金额`
+from (
+         select dt,
+                shop_id,
+                sum(payment_money)       as "总订单金额",
+                sum(sale_order_number)   as "总订单数",
+                count(distinct buyer_id) as "总下单人数",
+                sum(income_money)        as "总收入"
+         from dws_shop_deal_info
+         where shop_id = '2000000027'
+           and order_type = 'ALL'
+           and dt between '2021-07-01' and '2021-07-31'
+         group by shop_id, dt
+     ) a
+    all
+         full join (
+    select dt,
+           shop_id,
+           count(distinct if(loginToken is null or loginToken = '', ip, loginToken)) as "浏览人数",
+           sum(pv)                                                                      "浏览次数"
+    from dws_shop_clicklog_info
+    where shop_id = '2000000027'
+      and dt between '2021-07-01' and '2021-07-31'
+    group by shop_id, dt
+    ) b
+on a.shop_id = b.shop_id and a.dt = b.dt
+    all
+    full join (
+    select dt,
+    shop_id,
+    count(distinct case when paid = '2' and last_time = '' then buyer_id end) as "新下单用户"
+    from dws_shop_client_info
+    where shop_id = '2000000027'
+    and dt between '2021-07-01' and '2021-07-31'
+    group by dt, shop_id
+    ) c
+    on a.shop_id = c.shop_id and a.dt = c.dt
+    all
+    full join (
+    select dt,
+    shop_id,
+    sum(refund_money) as "退款金额"
+    from dws_shop_deal_refund_info
+    where shop_id = '2000000027'
+    and order_type = 'ALL'
+    and dt between '2021-07-01' and '2021-07-31'
+    group by dt, shop_id
+    ) d
+    on a.shop_id = d.shop_id and a.dt = d.dt;
+
+
 -- 移动端H5-离线-全部数据-交易-趋势
 select dt,
        sum(`总订单金额`)   "总订单金额",
@@ -271,15 +427,15 @@ select sum(`总订单金额`)   "总订单金额",
        sum(`自提点订单数量`) `自提点订单数量`,
        sum(`自提点数量`)   `自提点数量`
 from (
-         select sum(payment_money)                                                            as "总订单金额",
-                sum(income_money)                                                             as "总收入",
-                sum(sale_order_number)                                                        as "总订单数",
-                CAST(sum(payment_succeed_money) / count(distinct buyer_id) as Decimal(10, 2)) as "客单价",
-                0                                                                                "退款金额",
-                0                                                                                "自提点订单金额",
-                0                                                                                "自提点订单收入",
-                0                                                                                "自提点订单数量",
-                ifNull(count(distinct case when pick_id = '' then null else pick_id end), 0)  as "自提点数量"
+         select sum(payment_money)                                                                         as "总订单金额",
+                sum(income_money)                                                                          as "总收入",
+                sum(sale_order_number)                                                                     as "总订单数",
+                CAST(intDivOrZero(sum(payment_succeed_money), count(distinct buyer_id)) as Decimal(10, 2)) as "客单价",
+                0                                                                                             "退款金额",
+                0                                                                                             "自提点订单金额",
+                0                                                                                             "自提点订单收入",
+                0                                                                                             "自提点订单数量",
+                ifNull(count(distinct case when pick_id = '' then null else pick_id end), 0)               as "自提点数量"
          from dws_shop_deal_info
          where shop_id = '2000000079'
            and order_type = 'ALL'
@@ -314,22 +470,24 @@ from (
            and pick_id != ''
         and dt between '2021-07-13' and '2021-07-13'
          group by pick_id, pick_name);
+
+
 -- 移动端H5-离线-全部数据-交易-退款原因分析
-select sum(refund_money) as                                                          "退款金额",
+select sum(refund_money) as                                                                    "退款金额",
        case
            when sum(refund_money) = 0 then 0
            when sum(all_money) = 0 then 0
-           else CAST(sum(refund_money) as Int64) / CAST(sum(all_money) as Int64) end "占比"
+           else round(CAST(sum(refund_money) as Int64) / CAST(sum(all_money) as Int64), 2) end "占比"
 from dws_shop_deal_refund_info
 where shop_id = '2000000079'
   and order_type = 'ALL'
   and dt between '2021-07-13' and '2021-07-13';
 -- 移动端H5-离线-全部数据-商品-商品数据
-select item_name,
-       sku_pic_url,
-       sum(`销量`)   `销量`,
-       sum(`支付金额`) `支付金额`,
-       sum(`退款金额`) `退款金额`
+select item_name   as "商品名称",
+       sku_pic_url as "图片路径",
+       sum(`销量`)   as `销量`,
+       sum(`支付金额`) as `支付金额`,
+       sum(`退款金额`) as `退款金额`
 from (
          select item_name,
                 sku_pic_url,
@@ -363,9 +521,9 @@ from (
                 '渠道收入'            as typs,
                 sum(income_money) as tb_income
          from dws_shop_deal_info
-         where shop_id = '2000000111'
+         where shop_id = '2000000027'
            and order_type = 'TB'
-           and dt between '2021-07-13' and '2021-07-13'
+           and dt between '2021-07-01' and '2021-07-30'
          group by shop_id
      ) a
          left join (
@@ -373,9 +531,9 @@ from (
            '全部收入'            as typs,
            sum(income_money) as all_income
     from dws_shop_deal_info
-    where shop_id = '2000000111'
+    where shop_id = '2000000027'
       and order_type = 'ALL'
-      and dt between '2021-07-13' and '2021-07-13'
+      and dt between '2021-07-01' and '2021-07-30'
     group by shop_id
 ) b
                    on a.shop_id = b.shop_id
@@ -388,9 +546,9 @@ from (
                 '零售收入'            as typs,
                 sum(income_money) as tc_income
          from dws_shop_deal_info
-         where shop_id = '2000000111'
+         where shop_id = '2000000027'
            and order_type = 'TC'
-           and dt between '2021-07-13' and '2021-07-13'
+           and dt between '2021-07-01' and '2021-07-30'
          group by shop_id
      ) a
          left join (
@@ -398,13 +556,13 @@ from (
            '全部收入'            as typs,
            sum(income_money) as all_income
     from dws_shop_deal_info
-    where shop_id = '2000000111'
+    where shop_id = '2000000027'
       and order_type = 'ALL'
-      and dt between '2021-07-13' and '2021-07-13'
+      and dt between '2021-07-01' and '2021-07-30'
     group by shop_id
 ) b
                    on a.shop_id = b.shop_id;
---移动端H5-离线-全部数据-概况-趋势
+--移动端H5-离线-全部数据-概况-趋势  --- 去除
 select dt,
        sum(`总订单金额`)   "总订单金额",
        sum(`总收入`)     `总收入`,
@@ -465,18 +623,24 @@ from (
         and dt between 20210713 and 20210713
          group by dt, pick_id, pick_name)
 group by dt;
+
+
 -- 移动端H5-离线-全部数据-概况-新老用户分析
 select '下单老用户'                                                                    as "用户类型",
        count(distinct case when paid = '2' and last_time != '' then buyer_id end) as present_user_dis_number
 from dws_shop_client_info
 where shop_id = '2000000027'
-  and dt between '20210714' and '20210714'
+  and dt between '2021-07-01' and '2021-07-31'
+  and buyer_id != ''
 union all
 select '下单新用户'                                                                   as "用户类型",
        count(distinct case when paid = '2' and last_time = '' then buyer_id end) as present_user_dis_number
 from dws_shop_client_info
 where shop_id = '2000000027'
-  and dt between '20210714' and '20210714';
+  and dt between '2021-07-01' and '2021-07-31'
+  and buyer_id != '';
+
+
 -- 移动端H5-离线-全部数据-用户-用户数据
 select `总订单金额`,
        `浏览人数`,
@@ -519,59 +683,7 @@ on a.shop_id = b.shop_id
     group by shop_id
     ) c
     on a.shop_id = c.shop_id;
--- 移动端H5-离线-全部数据-概况-核心
-select `总订单金额`,
-       `总订单数`,
-       `下单人数`,
-       `总收入`,
-       `浏览人数`,
-       `浏览次数`,
-       c.`新下单用户`,
-       d.`退款金额`
-from (
-         select shop_id,
-                sum(payment_money)       as "总订单金额",
-                sum(sale_order_number)   as "总订单数",
-                count(distinct buyer_id) as "下单人数",
-                sum(income_money)        as "总收入"
-         from dws_shop_deal_info
-         where shop_id = '2000000027'
-           and order_type = 'ALL'
-           and dt between '2021-07-21' and '2021-07-21'
-         group by shop_id
-     ) a
-    all
-         full join (
-    select shop_id,
-           count(distinct if(loginToken is null or loginToken = '', ip, loginToken)) as "浏览人数",
-           sum(pv)                                                                      "浏览次数"
-    from dws_shop_clicklog_info
-    where shop_id = '2000000027'
-      and dt between '2021-07-21' and '2021-07-21'
-    group by shop_id
-    ) b
-on a.shop_id = b.shop_id
-    all
-    full join (
-    select shop_id,
-    count(distinct case when paid = '2' and last_time = '' then buyer_id end) as "新下单用户"
-    from dws_shop_client_info
-    where shop_id = '2000000027'
-    and dt between '2021-07-21' and '2021-07-21'
-    group by shop_id
-    ) c
-    on a.shop_id = c.shop_id
-    all
-    full join (
-    select shop_id,
-    sum(refund_money) as "退款金额"
-    from dws_shop_deal_refund_info
-    where shop_id = '2000000027'
-    and order_type = 'ALL'
-    and dt between '2021-07-21' and '2021-07-21'
-    group by shop_id
-    ) d
-    on a.shop_id = d.shop_id;
+
 --     渠道数据
 select `渠道订单金额`,
        `渠道收入`,
@@ -604,68 +716,164 @@ from (
          group by shop_id
          ) b
 on a.shop_id = b.shop_id;
--- 零售数据
-select `零售订单金额`,
-       `零售收入`,
-       `零售订单数`,
-       `零售下单人数`,
+--     渠道数据-趋势
+select dt,
+       `渠道订单金额`,
+       `渠道收入`,
+       `渠道订单数`,
+       `渠道下单人数`,
        `退款金额`,
-       `退款数量`,
-       `零售浏览量`,
-       `零售访客数`,
-       user_number / `零售访客数` as "访问支付转换率"
+       `渠道退款数量`
 from (
          select shop_id,
-                sum(payment_money)                                                  as "零售订单金额",
-                sum(sale_order_number)                                              as "零售订单数",
-                count(distinct buyer_id)                                            as "零售下单人数",
-                sum(income_money)                                                   as "零售收入",
+                sum(payment_money)       as "渠道订单金额",
+                sum(sale_order_number)   as "渠道订单数",
+                count(distinct buyer_id) as "渠道下单人数",
+                sum(income_money)        as "渠道收入"
+         from dws_shop_deal_info
+         where shop_id = '2000000027'
+           and order_type = 'TB'
+           and dt between '2021-07-15' and '2021-07-15'
+         group by dt, shop_id
+     ) a
+    all
+         full join
+     (
+         select dt,
+                shop_id,
+                sum(refund_money)  as "退款金额",
+                sum(refund_number) as "渠道退款数量"
+         from dws_shop_deal_refund_info
+         where shop_id = '2000000079'
+           and order_type = 'TB'
+           and dt between '2021-07-15' and '2021-07-15'
+         group by dt, shop_id
+         ) b
+on a.shop_id = b.shop_id;
+
+-- 零售数据
+select payment_money     as `零售订单金额`,
+       income_money      as "零售收入",
+       sale_order_number as "零售订单数",
+       dis_buyer_id      as "零售下单人数",
+       refund_money      as "退款金额",
+       refund_number     as "退款数量",
+       pv                as "零售浏览量",
+       uv                as "零售访客数",
+       user_number / uv  as "访问支付转换率"
+from (
+         select shop_id,
+                sum(payment_money)                                                  as payment_money,
+                sum(sale_order_number)                                              as sale_order_number,
+                count(distinct buyer_id)                                            as dis_buyer_id,
+                sum(income_money)                                                   as income_money,
                 count(distinct case when paid = 2 and refund = 0 then buyer_id end) as user_number
          from dws_shop_deal_info
          where shop_id = '2000000027'
            and order_type = 'TC'
-           and dt between '2021-07-15' and '2021-07-15'
+           and dt between '2021-07-25' and '2021-07-25'
          group by shop_id
      ) a
     all
          full join
      (
          select shop_id,
-                sum(refund_money)  as "退款金额",
-                sum(refund_number) as "退款数量"
+                sum(refund_money)  as refund_money,
+                sum(refund_number) as refund_number
          from dws_shop_deal_refund_info
          where shop_id = '2000000027'
            and order_type = 'TC'
-           and dt between '2021-07-15' and '2021-07-15'
+           and dt between '2021-07-25' and '2021-07-25'
          group by shop_id
          ) b
 on a.shop_id = b.shop_id
     all
     full join (
     select shop_id,
-    count(distinct if(loginToken is null or loginToken = '', ip, loginToken)) as "零售访客数",
-    sum(pv)                                                                      "零售浏览量"
+    count(distinct if(loginToken is null or loginToken = '', ip, loginToken)) as uv,
+    sum(pv)                                                                      pv
     from dws_shop_clicklog_info
     where shop_id = '2000000027'
     and order_type = 'H5'
-    and dt between '2021-07-15' and '2021-07-15'
+    and dt between '2021-07-25' and '2021-07-25'
     group by shop_id
+    ) c
+    on a.shop_id = c.shop_id;
+-- 零售数据-趋势
+select dt,
+       payment_money     as `零售订单金额`,
+       income_money      as "零售收入",
+       sale_order_number as "零售订单数",
+       dis_buyer_id      as "零售下单人数",
+       refund_money      as "退款金额",
+       refund_number     as "退款数量",
+       pv                as "零售浏览量",
+       uv                as "零售访客数",
+       user_number / uv  as "访问支付转换率"
+from (
+         select dt,
+                shop_id,
+                sum(payment_money)                                                  as payment_money,
+                sum(sale_order_number)                                              as sale_order_number,
+                count(distinct buyer_id)                                            as dis_buyer_id,
+                sum(income_money)                                                   as income_money,
+                count(distinct case when paid = 2 and refund = 0 then buyer_id end) as user_number
+         from dws_shop_deal_info
+         where shop_id = '2000000027'
+           and order_type = 'TC'
+           and dt between '2021-07-25' and '2021-07-25'
+         group by dt, shop_id
+     ) a
+    all
+         full join
+     (
+         select dt,
+                shop_id,
+                sum(refund_money)  as refund_money,
+                sum(refund_number) as refund_number
+         from dws_shop_deal_refund_info
+         where shop_id = '2000000027'
+           and order_type = 'TC'
+           and dt between '2021-07-25' and '2021-07-25'
+         group by dt, shop_id
+         ) b
+on a.shop_id = b.shop_id
+    all
+    full join (
+    select dt,
+    shop_id,
+    count(distinct if(loginToken is null or loginToken = '', ip, loginToken)) as uv,
+    sum(pv)                                                                      pv
+    from dws_shop_clicklog_info
+    where shop_id = '2000000027'
+    and order_type = 'H5'
+    and dt between '2021-07-25' and '2021-07-25'
+    group by dt, shop_id
     ) c
     on a.shop_id = c.shop_id;
 -------------------------------  pc
 -- 客户分析-成交客户分析-ALL
-select count(distinct a.buyer_id)                                                                      as "总订单用户数",
-       sum(payment_succeed_money)                                                                      as "成交金额",
-       count(distinct case when a.paid = 2 and a.refund = 0 then a.buyer_id end)                       as "成交用户数",
-       count(distinct case when b.last_time != '' and a.paid = 2 and a.refund = 0 then a.buyer_id end) as "成交老用户数",
-       count(distinct case when b.last_time = '' and a.paid = 2 and a.refund = 0 then a.buyer_id end)  as "成交新用户数",
-       count(distinct case when a.paid = 2 and a.refund = 0 then a.buyer_id end) /
-       count(distinct a.buyer_id)                                                                      as "成交客户占比",
-       count(distinct case when b.last_time = '' and a.paid = 2 and a.refund = 0 then a.buyer_id end) /
-       count(distinct a.buyer_id)                                                                      as "新成交客户占比",
-       count(distinct case when b.last_time != '' and a.paid = 2 and a.refund = 0 then a.buyer_id end) /
-       count(distinct a.buyer_id)                                                                      as "老成交客户占比",
-       CAST(sum(payment_succeed_money) / count(distinct buyer_id) as Decimal(10, 2))                   as "客单价"
+select count(distinct case when a.buyer_id != '' then a.buyer_id end)                                 as "总订单用户数",
+       sum(payment_succeed_money)                                                                     as "成交金额",
+       count(distinct case when a.paid = 2 and a.refund = 0 and a.buyer_id != '' then a.buyer_id end) as "成交用户数",
+       count(distinct case
+                          when b.last_time != '' and a.paid = 2 and a.refund = 0 and a.buyer_id is not null and
+                      a.buyer_id != '' then a.buyer_id end)                                  as "成交老用户数",
+       count(distinct case
+                          when b.last_time = '' and a.paid = 2 and a.refund = 0 and a.buyer_id is not null and
+                               a.buyer_id != '' then a.buyer_id end)                                  as "成交新用户数",
+       round(count(distinct case when a.paid = 2 and a.refund = 0 then a.buyer_id end) /
+             count(distinct case when a.buyer_id != '' then a.buyer_id end), 2)                       as "成交客户占比",
+       round(count(distinct case
+                                when b.last_time = '' and a.paid = 2 and a.refund = 0 and a.buyer_id is not null and
+                                     a.buyer_id != '' then a.buyer_id end) /
+             count(distinct case when a.buyer_id != '' then a.buyer_id end), 2)                       as "新成交客户占比",
+       round(count(distinct case
+                                when b.last_time != '' and a.paid = 2 and a.refund = 0 and a.buyer_id is not null and
+                            a.buyer_id != '' then a.buyer_id end) /
+             count(distinct case when a.buyer_id != '' then a.buyer_id end), 2)                       as "老成交客户占比",
+       CAST(sum(payment_succeed_money) /
+            count(distinct case when a.buyer_id != '' then a.buyer_id end) as Decimal(10, 2))         as "客单价"
 from (
          select shop_id,
                 buyer_id,
@@ -675,13 +883,14 @@ from (
          from dws_shop_deal_info
          where shop_id = '2000000027'
            and order_type = 'ALL'
-           and dt between '2021-07-21' and '2021-07-21'
+           and dt between '2021-07-22' and '2021-07-22'
+           and buyer_id != ''
          group by shop_id, buyer_id, paid, refund) a
          left join (
     select shop_id, buyer_id, last_time
     from dws_shop_client_info
     where shop_id = '2000000027'
-      and dt between '2021-07-21' and '2021-07-21'
+      and dt between '2021-07-22' and '2021-07-22'
     group by shop_id, buyer_id, last_time
 ) b
                    on a.shop_id = b.shop_id and a.buyer_id = b.buyer_id
@@ -700,13 +909,14 @@ from (
          from dws_shop_deal_info
          where shop_id = '2000000027'
            and order_type = 'ALL'
-           and dt between '2021-07-15' and '2021-07-15'
+           and dt between '2021-07-22' and '2021-07-22'
+           and buyer_id != ''
          group by shop_id, buyer_id, paid, refund) a
          left join (
     select shop_id, buyer_id, last_time
     from dws_shop_client_info
     where shop_id = '2000000027'
-      and dt between '2021-07-15' and '2021-07-15'
+      and dt between '2021-07-22' and '2021-07-22'
     group by shop_id, buyer_id, last_time
 ) b
                    on a.shop_id = b.shop_id and a.buyer_id = b.buyer_id
@@ -828,20 +1038,31 @@ from (
                    on a.shop_id = b.shop_id and a.buyer_id = b.buyer_id
 group by a.shop_id;
 -- 客户分析-成交客户分析-TB
-select count(distinct a.buyer_id)                                                             as "总订单用户数",
-       sum(payment_succeed_money)                                                             as "成交金额",
-       count(distinct case when a.paid = 2 and a.refund = 0 then a.buyer_id end)              as "成交用户数",
+select count(distinct case when a.buyer_id != '' then a.buyer_id end)                                           as "总订单用户数",
+       sum(payment_succeed_money)                                                                               as "成交金额",
        count(distinct
-             case when b.last_time != '' and a.paid = 2 and a.refund = 0 then a.buyer_id end) as "成交老用户数",
-       count(distinct
-             case when b.last_time = '' and a.paid = 2 and a.refund = 0 then a.buyer_id end)  as "成交新用户数",
+             case when a.paid = 2 and a.refund = 0 and a.buyer_id != '' then a.buyer_id end)                    as "成交用户数",
+       count(distinct case
+                          when b.last_time != '' and a.paid = 2 and a.refund = 0 and a.buyer_id is not null and
+                      a.buyer_id != ''
+                              then a.buyer_id end)                                                              as "成交老用户数",
+       count(distinct case
+                          when b.last_time = '' and a.paid = 2 and a.refund = 0 and a.buyer_id is not null and
+                               a.buyer_id != ''
+                              then a.buyer_id end)                                                              as "成交新用户数",
        count(distinct case when a.paid = 2 and a.refund = 0 then a.buyer_id end) /
-       count(distinct a.buyer_id)                                                             as "成交客户占比",
-       count(distinct case when b.last_time = '' and a.paid = 2 and a.refund = 0 then a.buyer_id end) /
-       count(distinct a.buyer_id)                                                             as "新成交客户占比",
-       count(distinct case when b.last_time != '' and a.paid = 2 and a.refund = 0 then a.buyer_id end) /
-       count(distinct a.buyer_id)                                                             as "老成交客户占比",
-       CAST(sum(payment_succeed_money) / count(distinct buyer_id) as Decimal(10, 2))          as "客单价"
+       count(distinct case when a.buyer_id != '' then a.buyer_id end)                                           as "成交客户占比",
+       intDivOrZero(count(distinct case
+                                       when b.last_time = '' and a.paid = 2 and a.refund = 0 and
+                                            a.buyer_id is not null and
+                                            a.buyer_id != '' then a.buyer_id end),
+                    count(distinct case when a.buyer_id != '' then a.buyer_id end))                             as "新成交客户占比",
+       intDivOrZero(count(distinct case
+                                       when b.last_time != '' and a.paid = 2 and a.refund = 0 and
+                                   a.buyer_id is not null and
+                                   a.buyer_id != '' then a.buyer_id end),
+                    count(distinct case when a.buyer_id != '' then a.buyer_id end))                             as "老成交客户占比",
+       intDivOrZero(sum(payment_succeed_money), count(distinct case when a.buyer_id != '' then a.buyer_id end)) as "客单价"
 from (
          select shop_id,
                 buyer_id,
@@ -851,13 +1072,14 @@ from (
          from dws_shop_deal_info
          where shop_id = '2000000027'
            and order_type = 'TB'
-           and dt between '2021-07-15' and '2021-07-15'
+           and dt between '2021-07-22' and '2021-07-22'
+           and buyer_id != ''
          group by shop_id, buyer_id, paid, refund) a
          left join (
     select shop_id, buyer_id, last_time
     from dws_shop_client_info
     where shop_id = '2000000027'
-      and dt between '2021-07-15' and '2021-07-15'
+      and dt between '2021-07-22' and '2021-07-22'
     group by shop_id, buyer_id, last_time
 ) b
                    on a.shop_id = b.shop_id and a.buyer_id = b.buyer_id
@@ -1001,29 +1223,31 @@ from (select count()                                                            
 on a.hour = b.hour
 order by hour;
 -- 实时概况-核心指标-图表
-select
---        ifNull(b.day,a.day) as day,
---        pv as "浏览量",
---        uv as "访客数",
---        userNumber as "订单用户",
---        orderNumber as "订单量",
---        money as "支付金额",
---     if(isNaN(toFloat64(money)/toFloat64(userNumber)),0,round(toFloat64(money)/toFloat64(userNumber),3)) as "客单价"
-case
-    when userNumber = 0 then 0
-    when uv = 0 then 0
-    else round(CAST(ifNull(userNumber, 0) as Int64) / CAST(ifNull(uv, 0) as Int64), 2) end
-    as "访客-支付转换率"
+select case
+           when b.day == '' then a.day
+           else b.day end                                     as day,
+       pv                                                     as "浏览量",
+       uv                                                     as "访客数",
+       userNumber                                             as "订单用户",
+       orderNumber                                            as "订单量",
+       money                                                  as "支付金额",
+       if(isNaN(toFloat64(money) / toFloat64(userNumber)), 0,
+          round(toFloat64(money) / toFloat64(userNumber), 3)) as "客单价",
+       case
+           when userNumber = 0 then 0
+           when uv = 0 then 0
+           else round(CAST(ifNull(userNumber, 0) as Int64) / CAST(ifNull(uv, 0) as Int64), 2) end
+                                                              as "访客-支付转换率"
 from (
          select count()                                                                                         pv,
                 count(distinct case when loginToken == '' or loginToken is null then ip else loginToken end) as uv,
-             day
+                day
          from default.dwd_page_log_all
          where shopId = '2000000027'
-           and day between '2021-07-12' and '2021-07-19'
+           and day between '2021-07-19' and '2021-07-25'
          group by day
-     ) a
-    all
+         ) a
+         all
          full join (
     select count(distinct case when paid = 2 and buyerId != 0 then buyerId end) as userNumber,
            sum(case when paid = 1 then 0 else 1 end)                            as orderNumber,
@@ -1031,10 +1255,11 @@ from (
            day
     from default.dwd_order_all final
     where shopId = 2000000027
-      and day between '2021-07-12' and '2021-07-19'
+      and day between '2021-07-19' and '2021-07-15'
     group by day
     ) b
-on a.day = b.day;
+                   on a.day = b.day
+order by a.day;
 --实时概况-流量看板-all
 select intDivOrZero(all_time, uv)          as "平均停留时长",
        intDivOrZero(pv, uv)                as "人均浏览量",
@@ -1799,8 +2024,10 @@ from (
                          count(distinct
                                case when loginToken == '' or loginToken is null then ip else loginToken end) as uv
                   from default.dwd_page_log_all
-                  where shopId = '2000000027' and day = cast (toDate(now()) as String) and event='page_H5_goods'
-                  group by  itemId, itemName
+                  where shopId = '2000000027'
+                            and day = cast(toDate(now()) as String)
+                    and event = 'page_H5_goods'
+                  group by itemId, itemName
               ) a
          order by uv desc
      ) a
@@ -1826,5 +2053,42 @@ from (
          group by itemId
      ) b
      on cast(a.itemId as Int64) = b.itemId
-    limit 5
+    limit 5;
 
+
+
+select a.buyer_id,
+       a.paid,
+       a.refund,
+       b.last_time,
+       a.paid,
+--        ,
+--       count(distinct case when a.paid = 2 and a.refund = 0 and a.buyer_id != '' then a.buyer_id end)     as "成交用户数"
+--        count(distinct case
+--                           when b.last_time != '' and a.paid = 2 and a.refund = 0 and a.buyer_id is not null and
+--                                a.buyer_id != '' then a.buyer_id end)                 as "成交老用户数"
+--         count(distinct case
+--                           when b.last_time = '' and a.paid = 2 and a.refund = 0 and a.buyer_id is not null and
+--                                a.buyer_id != '' then a.buyer_id end)                 as "成交新用户数"
+       case
+--
+           when b.last_time = '' and a.paid = 2 and a.refund = 0 then a.buyer_id end as "da"
+from (
+         select shop_id,
+                buyer_id,
+                paid,
+                refund,
+                sum(payment_succeed_money) as payment_succeed_money
+         from dws_shop_deal_info
+         where shop_id = '2000000027'
+           and order_type = 'ALL'
+           and dt between '2021-07-22' and '2021-07-22'
+         group by shop_id, buyer_id, paid, refund) a
+         left join (
+    select shop_id, buyer_id, last_time
+    from dws_shop_client_info
+    where shop_id = '2000000027'
+      and dt between '2021-07-22' and '2021-07-22'
+    group by shop_id, buyer_id, last_time
+) b
+                   on a.shop_id = b.shop_id and a.buyer_id = b.buyer_id;

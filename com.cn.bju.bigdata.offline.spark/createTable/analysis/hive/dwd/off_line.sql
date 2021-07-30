@@ -31,7 +31,8 @@ create_time String, --订单时间
 freight_money decimal(10,2), --订单总运费
 cost_price decimal(10,2),--订单成本价
 payment_price decimal(10,2), --订单支付价
-payment_num decimal(10,2)
+payment_num decimal(10,2),
+item_original_price decimal(10,2) --商品原始价格
 )
 PARTITIONED BY (
 dt string
@@ -39,7 +40,6 @@ dt string
 stored as parquet
 location '/user/hive/warehouse/dwd.db/dwd_fact_order_info'
 tblproperties ("orc.compression" = "snappy");
-
 create
 external table dwd.dwd_fact_outbound_bill_info
 (
@@ -70,7 +70,9 @@ pick_order_id String, -- 自提点订单
 payment_num decimal(10,2),
 payment_price decimal(10,2),
 cost_price decimal(10,2),
-sku_pic_url String
+sku_pic_url String,
+item_original_price decimal(10,2), --商品原始价格
+group_purchase_commission decimal(10,2) --商品原始价格
 )
 PARTITIONED BY (
 dt string
@@ -78,6 +80,10 @@ dt string
 stored as parquet
 location '/user/hive/warehouse/dwd.db/dwd_fact_outbound_bill_info'
 tblproperties ("orc.compression" = "snappy");
+alter table dwd.dwd_fact_order_info add columns(group_purchase_commission decimal(14,2));
+ALTER TABLE dwd.dwd_fact_outbound_bill_info DROP IF EXISTS PARTITION (dt='20210728');
+
+
 
 create
 external table dwd.dwd_fact_order_refund_info

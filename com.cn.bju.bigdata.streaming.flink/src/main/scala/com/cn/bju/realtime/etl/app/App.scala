@@ -42,18 +42,18 @@ object App {
     // 订单
     val orderProcess: OrderDataETL = new OrderDataETL(env)
     orderProcess.process()
-    // 流量点击
-    val clickLogDataETL: ClickLogDataETL = new ClickLogDataETL(env)
-    clickLogDataETL.process()
-    // 订单明细表
-    val orderDetailDataETL: OrderDetailDataETL = new OrderDetailDataETL(env)
-    orderDetailDataETL.process()
-    // 退款表
-    val refundDataETL: RefundDataETL = new RefundDataETL(env)
-    refundDataETL.process()
-    // 仓库信息
-    val outBoundBillETL: OutBoundBillETL = new OutBoundBillETL(env)
-    outBoundBillETL.process()
+//    // 流量点击
+//    val clickLogDataETL: ClickLogDataETL = new ClickLogDataETL(env)
+//    clickLogDataETL.process()
+//    // 订单明细表
+//    val orderDetailDataETL: OrderDetailDataETL = new OrderDetailDataETL(env)
+//    orderDetailDataETL.process()
+//    // 退款表
+//    val refundDataETL: RefundDataETL = new RefundDataETL(env)
+//    refundDataETL.process()
+//    // 仓库信息
+//    val outBoundBillETL: OutBoundBillETL = new OutBoundBillETL(env)
+//    outBoundBillETL.process()
 
 
     env.execute("=============> true")

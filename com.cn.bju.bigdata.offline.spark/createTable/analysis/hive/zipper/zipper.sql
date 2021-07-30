@@ -220,6 +220,21 @@ external table dwd.fact_orders
     self_pick_flag         int comment '1:自提订单 0:非自提订单',
     expect_receive_time    string comment '期望收货时间',
     delivery_remark        string comment '发货备注',
+    sub_mchId                 varchar(100)                   comment '子商户号',
+    order_cancel_time         string                       comment '订单取消时间',
+    distribution_flag         int                            comment '分销订单标识 0：普通订单 1：分销订单',
+    dis_shop_id               bigint                         comment '分销店铺ID',
+    dis_user_id               bigint                         comment '分销用户ID',
+    dis_sub_mchId             varchar(100)                   comment '分销二级商户号',
+    total_commission          decimal(14, 2),
+    chain_store_id            bigint                         comment '连锁门店id',
+    group_leader_shop_id      bigint                         comment '团长店铺ID',
+    group_leader_user_id      bigint                         comment '团长用户ID',
+    group_leader_mchId        varchar(100)                   comment '团长商户号',
+    group_purchase_commission decimal(14, 2)                 comment '团购佣金',
+    group_leader_remark       varchar(512)                   comment '团长备注',
+    group_purchase_code       varchar(100)                   comment '团购活动编码',
+    need_invoice_flag         int                            comment '团购订单是否开票：1，否；2，是；',
     create_zipper_time     string comment '有效开始时间',
     end_zipper_time        string comment '有效结束时间'
 ) COMMENT '订单拉链表'
@@ -229,6 +244,7 @@ PARTITIONED BY (
 stored as parquet
 location '/user/hive/warehouse/dwd.db/fact_orders'
 tblproperties ("orc.compression" = "snappy");
+
 --动态分区 在spark-sql中执行
 set
 hive.exec.dynamici.partition=true;
@@ -988,7 +1004,8 @@ select id,
        '9999-12-31'         as end_zipper_time,
        date_format(create_time, 'yyyyMMdd')
 from ods.ods_inbound_bill
-where dt = "20210720" and to_date(create_time) != '2021-07-21'
+where dt = "20210720"
+  and to_date(create_time) != '2021-07-21'
 
 -----------------------------------自提点
 create
@@ -1094,7 +1111,7 @@ external table dwd.dim_user
       dis_flag int          comment '分销标识 1申请 2通过',
       group_flag int          comment '团长标识 1申请 2通过',
       create_zipper_time     string comment '有效开始时间',
-    end_zipper_time        string comment '有效结束时间'
+      end_zipper_time        string comment '有效结束时间'
 )
 comment '用户信息-拉链表'
 PARTITIONED BY (
@@ -1142,3 +1159,39 @@ select id,
        '9999-12-31'         as end_zipper_time,
        date_format(create_time, 'yyyyMMdd')
 from ods.ods_user
+
+create
+external table dwd.fact_shop_user_attention
+(
+id          bigint,
+user_id     bigint,
+shop_id     bigint,
+attend_group_count     bigint comment '参团数',
+group_total_amount     bigint comment '团购总金额',
+create_time String,
+last_buy_time String comment '最后一次购买时间',
+yn          int,
+create_zipper_time     string comment '有效开始时间',
+end_zipper_time        string comment '有效结束时间'
+)
+comment '用户信息-拉链表'
+PARTITIONED BY (
+  dt string
+)
+stored as parquet
+location '/user/hive/warehouse/dwd.db/fact_shop_user_attention'
+tblproperties ("orc.compression"="snappy");
+insert
+overwrite table dwd.fact_shop_user_attention
+select id,
+       user_id,
+       shop_id,
+       attend_group_count,
+       group_total_amount,
+       create_time,
+       last_buy_time,
+       yn,
+       to_date(create_time) as create_zipper_time,
+       '9999-12-31'         as end_zipper_time,
+       date_format(create_time, 'yyyyMMdd')
+from ods.ods_shop_user_attention

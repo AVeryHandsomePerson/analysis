@@ -15,7 +15,6 @@ object DimentsionDataLoader {
   def main(args: Array[String]): Unit = {
     //1：注册mysql的驱动
     Class.forName("com.mysql.jdbc.Driver")
-
     //2：创建连接
     val connection: Connection = DriverManager.getConnection(s"jdbc:mysql://${GlobalConfigUtil.`mysql.server.ip`}:${GlobalConfigUtil.`mysql.server.port`}/${GlobalConfigUtil.`mysql.server.database`}",
       GlobalConfigUtil.`mysql.server.username`,
@@ -27,7 +26,6 @@ object DimentsionDataLoader {
     //4：加载维度表的数据到redis中
     //1）商品维度表
     LoadDimGoods(connection, jedis)
-
     System.exit(0)
   }
 

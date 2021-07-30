@@ -26,10 +26,6 @@ class OutBoundBillETL(env: StreamExecutionEnvironment) extends MysqlBaseETL(env)
    * 根据业务抽取出来process方法，因为所有的ETL都有操作方法
    */
   override def process(): Unit = {
-
-
-
-
 //    //   获取出库主表信息
     val outboundDll: DataStream[OutBoundDllEntity] = getKafkaDataStream()
       .filter(x => (x.getTableName == "outbound_bill" && StringUtils.isNotEmpty(x.getColumns.get("id"))))
@@ -39,7 +35,9 @@ class OutBoundBillETL(env: StreamExecutionEnvironment) extends MysqlBaseETL(env)
           x.getColumns.get("type").toInt,
           x.getColumns.get("order_id").toLong,
           x.getColumns.get("shop_id"),
-          x.getColumns.get("create_time")
+          x.getColumns.get("create_time"),
+          x.getColumns.get("buyer_shop_id"),
+          x.getColumns.get("buyer_shop_name")
         )
       })
 //
@@ -101,6 +99,8 @@ class InnerWindowJoinFunction extends JoinFunction[OutBoundBillDetail, OutBoundD
       outBoundBillDetail.getSkuId,
       outBoundBillDetail.getOrderNum,
       outBoundBillDetail.getPrice,
+      outBoundDllEntity.getBuyer_shop_id,
+      outBoundDllEntity.getBuyer_shop_name,
       outBoundBillDetail.create_time,
       dataTime.toString("HH"),
       dataTime.toString("yyyy-MM-dd")
