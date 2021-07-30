@@ -320,6 +320,11 @@ external table ods.ods_refund_apply
 ALTER TABLE ods.ods_refund_apply
     ADD IF NOT EXISTS PARTITION (dt = '20210329') location '/user/hive/warehouse/ods.db/ods_refund_apply/dt=20210329/';
 
+alter table ods.ods_refund_apply add columns(freight_money             decimal(10, 2),refund_commission         decimal(14, 2),refund_item_type          tinyint       ,payment_source            varchar(50)   ,create_inbound            tinyint       ,refund_group_commission   decimal(14, 2),group_leader_shop_id      bigint        ,group_leader_check_status int           ,group_leader_check_remark varchar(100)  ,group_leader_check_time   String);
+
+
+
+
 
 create table ods.ods_refund_process
 (

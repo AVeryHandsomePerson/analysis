@@ -673,6 +673,16 @@ external table dwd.fact_refund_apply
     store_complete         int comment '入库完成标识：1，否；2，是',
     balance_amount         string comment '余额金额',
     is_create_bound_bill   int comment '是否创建入库单：0，否；1，是',
+    freight_money             decimal(10, 2)  comment '订单总运费（整单退时，记录订单总运费）',
+    refund_commission         decimal(14, 2)               comment '退单明细分销佣金汇总',
+    refund_item_type          tinyint                      comment '退单商品类型 1卷筒 2平张',
+    payment_source            varchar(50)                  comment '付款方式（ToB用）',
+    create_inbound            tinyint                      comment '是否生成入库单 1生成 2不生成',
+    refund_group_commission   decimal(14, 2)               comment '退单明细团长佣金汇总',
+    group_leader_shop_id      bigint                       comment '团长店铺ID',
+    group_leader_check_status int                          comment '团长审核状态： 1，未审核；2，审核通过； 3，审核拒绝',
+    group_leader_check_remark varchar(100)                 comment '团长审核备注',
+    group_leader_check_time   string                     comment '团长审核时间',
     create_zipper_time     string comment '有效开始时间',
     end_zipper_time        string comment '有效结束时间'
 )

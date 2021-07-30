@@ -40,6 +40,11 @@ dt string
 stored as parquet
 location '/user/hive/warehouse/dwd.db/dwd_fact_order_info'
 tblproperties ("orc.compression" = "snappy");
+
+ALTER TABLE dwd.dwd_fact_order_info DROP IF EXISTS PARTITION (dt='20210729');
+
+alter table dwd.dwd_fact_order_info add columns(group_leader_shop_id String,group_leader_user_id String);
+
 create
 external table dwd.dwd_fact_outbound_bill_info
 (
@@ -72,7 +77,9 @@ payment_price decimal(10,2),
 cost_price decimal(10,2),
 sku_pic_url String,
 item_original_price decimal(10,2), --商品原始价格
-group_purchase_commission decimal(10,2) --商品原始价格
+group_purchase_commission decimal(10,2), --商品原始价格
+group_leader_shop_id String, --商品原始价格
+group_leader_user_id String --商品原始价格
 )
 PARTITIONED BY (
 dt string
@@ -81,7 +88,9 @@ stored as parquet
 location '/user/hive/warehouse/dwd.db/dwd_fact_outbound_bill_info'
 tblproperties ("orc.compression" = "snappy");
 alter table dwd.dwd_fact_order_info add columns(group_purchase_commission decimal(14,2));
-ALTER TABLE dwd.dwd_fact_outbound_bill_info DROP IF EXISTS PARTITION (dt='20210728');
+ALTER TABLE dwd.dwd_fact_outbound_bill_info DROP IF EXISTS PARTITION (dt='20210729');
+
+alter table dwd.dwd_fact_outbound_bill_info add columns(group_leader_shop_id String,group_leader_user_id String);
 
 
 
@@ -112,8 +121,8 @@ dt string
 stored as parquet
 location '/user/hive/warehouse/dwd.db/dwd_fact_order_refund_info'
 tblproperties ("orc.compression" = "snappy");
-
-
+alter table dwd.dwd_fact_order_refund_info add columns(group_leader_shop_id String,group_leader_check_status String);
+ALTER TABLE dwd.dwd_fact_order_refund_info DROP IF EXISTS PARTITION (dt='20210729');
 
 create
 external table dwd.dwd_dim_order_user_locus

@@ -163,6 +163,8 @@ class DwdETL(spark: SparkSession, dt: String) {
          |cast(b.num as decimal(24,2)) as payment_num, -- 支付数量
          |b.item_original_price,--商品原始价格
          |a.group_purchase_commission,
+         |a.group_leader_shop_id,
+         |a.group_leader_user_id,
          |$dt
          |from
          |orders a
@@ -223,6 +225,8 @@ class DwdETL(spark: SparkSession, dt: String) {
          |d.sku_pic_url,
          |d.item_original_price, --商品原始价格
          |b.group_purchase_commission, --团购利润
+         |b.group_leader_shop_id, --团购利润
+         |b.group_leader_user_id, --团购利润
          |$dt
          |from
          |outbound_bill a
@@ -234,6 +238,8 @@ class DwdETL(spark: SparkSession, dt: String) {
          |buyer_id,
          |order_type,
          |group_purchase_commission,
+         |group_leader_shop_id,
+         |group_leader_user_id,
          |paid
          |from
          |orders
@@ -277,6 +283,8 @@ class DwdETL(spark: SparkSession, dt: String) {
          |order_id,
          |refund_status,
          |refund_reason,
+         |group_leader_shop_id,
+         |group_leader_check_status,
          |create_time,
          |modify_time
          |from dwd.fact_refund_apply
@@ -345,6 +353,8 @@ class DwdETL(spark: SparkSession, dt: String) {
          |case when d.order_type is null or d.order_type = '' then a.order_type
          |     else d.order_type end as order_type,
          |nvl(cast((unix_timestamp(max_time,'yyyy-MM-dd HH:mm:ss') - unix_timestamp(min_time,'yyyy-MM-dd HH:mm:ss'))/60 as decimal(10,2)),0) as avg_time, --平均处理时间
+         |a.group_leader_shop_id,
+         |a.group_leader_check_status,
          |$dt
          |from
          |refund_apply a

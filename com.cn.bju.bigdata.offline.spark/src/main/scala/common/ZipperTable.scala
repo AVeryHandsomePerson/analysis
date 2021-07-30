@@ -732,12 +732,22 @@ object ZipperTable {
          |a.store_complete,
          |a.balance_amount,
          |a.is_create_bound_bill,
+         |a.freight_money,
+         |a.refund_commission,
+         |a.refund_item_type,
+         |a.payment_source,
+         |a.create_inbound,
+         |a.refund_group_commission,
+         |a.group_leader_shop_id,
+         |a.group_leader_check_status,
+         |a.group_leader_check_remark,
+         |a.group_leader_check_time,
          |a.create_zipper_time,
          |case when b.order_id is not null and a.end_zipper_time = '9999-12-31'
          |then '$yesterDayDateTime' else a.end_zipper_time  end as end_zipper_time,
          |a.dt
          |from
-         |(select * from dwd.fact_refund_apply where dt >  $yesterDay ) a
+         |(select * from dwd.fact_refund_apply where dt >  $orderFailureTime ) a
          |left join
          |ods_refund_apply_tmp b
          |on a.id = b.id
@@ -801,6 +811,16 @@ object ZipperTable {
          |store_complete,
          |balance_amount,
          |is_create_bound_bill,
+         |freight_money,
+         |refund_commission,
+         |refund_item_type,
+         |payment_source,
+         |create_inbound,
+         |refund_group_commission,
+         |group_leader_shop_id,
+         |group_leader_check_status,
+         |group_leader_check_remark,
+         |group_leader_check_time,
          |case when modify_time is not null
          |then to_date(modify_time) else to_date(create_time)
          |end as create_zipper_time,
