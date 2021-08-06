@@ -128,7 +128,7 @@ object ZipperTable {
          |--动态分区需要的字段
          |a.dt
          |from
-         |(select * from dwd.fact_orders where dt > $yesterDay ) a
+         |(select * from dwd.fact_orders where dt > $orderFailureTime ) a
          |left join
          |oders_tmp b
          |on a.order_id = b.order_id
@@ -229,8 +229,6 @@ object ZipperTable {
          |from
          |oders_tmp
          |""".stripMargin)
-
-
     /**
      * 订单明细拉链表
      * 去除
@@ -1312,6 +1310,7 @@ object ZipperTable {
          |date_format(create_time, 'yyyyMMdd')
          |from shop_user_attention
          |""".stripMargin)
+
 
 
   }

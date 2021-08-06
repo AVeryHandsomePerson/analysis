@@ -19,18 +19,21 @@ class DwsETL(spark: SparkSession, dt: String) extends WriteOffLineBase {
       s"""
          |select
          |shop_id,
+         |max(order_id) as order_id,
+         |max(shop_name) as shop_name,
          |buyer_id,
          |buyer_name,
          |sku_id,item_name,pick_id,pick_name,province_name,city_name,country_name,sku_pic_url,paid,refund,po_type,seller_id,seller_name,cid,cat_3d_name,
          |'TC' as order_type,
+         |max(freight_money) as freight_money,
          |count(1) as sale_order_number, --下单笔数
          |count(distinct pick_order_id) as sale_pick_order_number, --自提点订单数
          |sum(payment_num) as num,
          |nvl(sum(case when paid = 2 and refund = 0 then payment_num end),0) as payment_num,  --支付件数
-         |nvl(cast(sum(case when paid = 2 and refund = 0 then (payment_num * payment_price)+freight_money end) as  decimal(10,2)),0) as payment_succeed_money, -- 支付成功金额
+         |nvl(cast(sum(case when paid = 2 then payment_num * payment_price end) as  decimal(10,2)),0) as payment_succeed_money, -- 支付成功未退款金额
          |count(case when paid = 2 and refund = 0 then 1 end) as payment_succeed_number, --支付成功数据(成交单量)
          |nvl(cast(sum((item_original_price - cost_price) * payment_num) as  decimal(10,2) ),0) as income_money, -- 收入金额
-         |cast(sum(case when paid = 2 then (payment_num * payment_price)+freight_money else 0 end) as  decimal(10,2)) as payment_money, --下单金额
+         |cast(sum(payment_num * payment_price) as  decimal(10,2)) as payment_money, --下单金额
          |'$partitionDt' as dt
          |from
          |dwd.dwd_fact_order_info
@@ -40,18 +43,21 @@ class DwsETL(spark: SparkSession, dt: String) extends WriteOffLineBase {
          |union all
          |select
          |shop_id,
+         |max(order_id) as order_id,
+         |max(shop_name) as shop_name,
          |buyer_id,
          |buyer_name,
          |sku_id,item_name,pick_id,pick_name,province_name,city_name,country_name,sku_pic_url,paid,refund,po_type,seller_id,seller_name,cid,cat_3d_name,
          |'ALL' as order_type,
+         |max(freight_money) as freight_money,
          |count(1) as sale_order_number, --下单笔数
          |count(distinct pick_order_id) as sale_pick_order_number, --自提点订单数
          |sum(payment_num) as num,
          |nvl(sum(case when paid = 2 and refund = 0 then payment_num end),0) as payment_num,  --支付件数
-         |nvl(cast(sum(case when paid = 2 and refund = 0 then (payment_num * payment_price)+freight_money end) as  decimal(10,2)),0) as payment_succeed_money, -- 支付成功金额
+         |nvl(cast(sum(case when paid = 2 then payment_num * payment_price end) as  decimal(10,2)),0) as payment_succeed_money, -- 支付成功金额
          |count(case when paid = 2 and refund = 0 then 1 end) as payment_succeed_number, --支付成功数据(成交单量)
-         |nvl(cast(sum(case when order_type != 'TG' then (item_original_price - cost_price) * payment_num else group_purchase_commission end) as  decimal(10,2) ) ,0)as income_money, -- 收入金额
-         |cast(sum(case when paid = 2 then (payment_num * payment_price)+freight_money else 0 end) as  decimal(10,2)) as payment_money, --下单金额
+         |nvl(cast(sum(case when order_type != 'TG' then (item_original_price - cost_price) * payment_num else group_purchase_commission end) as  decimal(10,2) ) ,0) as income_money, -- 收入金额
+         |cast(sum(payment_num * payment_price) as  decimal(10,2)) as payment_money, --下单金额
          |'$partitionDt' as dt
          |from
          |dwd.dwd_fact_order_info
@@ -60,18 +66,21 @@ class DwsETL(spark: SparkSession, dt: String) extends WriteOffLineBase {
          |union all
          |select
          |shop_id,
+         |max(order_id) as order_id,
+         |max(shop_name) as shop_name,
          |buyer_id,
          |buyer_name,
          |sku_id,item_name,pick_id,pick_name,province_name,city_name,country_name,sku_pic_url,paid,type as refund,po_type,seller_id,seller_name,cid,cat_3d_name,
          |'TB' as order_type,
+         |max(freight_money) as freight_money,
          |count(1) as sale_order_number, --下单笔数
          |count(distinct pick_order_id) as sale_pick_order_number, --自提点订单数
          |sum(payment_num) as num,
          |nvl(sum(case when paid = 2 and type != 9 and type != 10 then payment_num end),0) as payment_num,  --支付件数
-         |nvl(cast(sum(case when paid = 2 and type != 9 and type != 10 then (payment_num * payment_price)+freight_money end) as  decimal(10,2)),0) as payment_succeed_money, -- 支付成功金额
+         |nvl(cast(sum(case when paid = 2  then payment_num * payment_price end) as  decimal(10,2)),0) as payment_succeed_money, -- 支付成功金额
          |count(case when paid = 2 and type != 9 and type != 10 then 1 end) as payment_succeed_number, --支付成功数据(成交单量)
          |nvl(cast(sum((item_original_price - cost_price) * payment_num) as  decimal(10,2) ),0) as income_money, -- 收入金额
-         |cast(sum(case when paid = 2 then (payment_num * payment_price)+freight_money else 0 end) as  decimal(10,2)) as payment_money, --下单金额
+         |cast(sum(payment_num * payment_price) as  decimal(10,2)) as payment_money, --下单金额
          |'$partitionDt' as dt
          |from
          |dwd.dwd_fact_outbound_bill_info
@@ -79,26 +88,57 @@ class DwsETL(spark: SparkSession, dt: String) extends WriteOffLineBase {
          |group by shop_id,buyer_id,buyer_name,sku_id,item_name,pick_id,pick_name,province_name,city_name,country_name,sku_pic_url,paid,type,po_type,seller_id,seller_name,cid,cat_3d_name
          |union all
          |select
-         |shop_id,
+         |group_leader_shop_id as shop_id,
+         |max(order_id) as order_id,
+         |max(shop_name) as shop_name,
          |buyer_id,
          |buyer_name,
          |sku_id,item_name,pick_id,pick_name,province_name,city_name,country_name,sku_pic_url,paid,refund,po_type,seller_id,seller_name,cid,cat_3d_name,
          |'TG' as order_type,
+         |max(freight_money) as freight_money,
          |count(1) as sale_order_number, --下单笔数
          |count(distinct pick_order_id) as sale_pick_order_number, --自提点订单数
          |sum(payment_num) as num,
          |nvl(sum(case when paid = 2 and refund = 0 then payment_num end),0) as payment_num,  --支付件数
-         |nvl(cast(sum(case when paid = 2 and refund = 0 then (payment_num * payment_price)+freight_money end) as  decimal(10,2)),0) as payment_succeed_money, -- 支付成功金额
+         |nvl(cast(sum(case when paid = 2 then payment_num * payment_price end) as  decimal(10,2)),0) as payment_succeed_money, -- 支付成功金额
          |count(case when paid = 2 and refund = 0 then 1 end) as payment_succeed_number, --支付成功数据(成交单量)
-         |nvl(max(group_purchase_commission),0) as income_money, -- 收入金额
-         |cast(sum((payment_num * payment_price)+freight_money) as  decimal(10,2)) as payment_money, --下单金额
+         |nvl(sum(case when paid = 2 then group_purchase_commission end),0) as income_money, -- 收入金额
+         |cast(sum(payment_num * payment_price) as  decimal(10,2)) as payment_money, --下单金额
          |'$partitionDt' as dt
          |from
          |dwd.dwd_fact_order_info
          |where  dt = $dt and  order_type = 'TG'
-         |group by shop_id,buyer_id,buyer_name,sku_id,item_name,pick_id,pick_name,province_name,city_name,country_name,sku_pic_url,paid,refund,po_type,seller_id,seller_name,cid,cat_3d_name
+         |group by group_leader_shop_id,buyer_id,buyer_name,sku_id,item_name,pick_id,pick_name,province_name,city_name,country_name,sku_pic_url,paid,refund,po_type,seller_id,seller_name,cid,cat_3d_name
          |""".stripMargin)
     writerClickHouse(dwsShopDealInfoDF, "dws_shop_deal_info")
+    //店铺-订单运费信息表
+    val freightDF = spark.sql(
+        s"""
+          |select
+          |shop_id,
+          |order_type,
+          |sku_id,
+          |nvl(cast(sum(case when paid = 2 and refund = 0 then freight_money end) as  decimal(10,2)),0) as payment_succeed_freight_money, -- 支付成功金额
+          |cast(sum(freight_money) as  decimal(10,2)) as payment_freight_money, --下单运费金额
+          |'$partitionDt' as dt
+          |from
+          |(
+          |select
+          |order_id,
+          |shop_id,
+          |order_type,
+          |sku_id,
+          |freight_money,
+          |paid,
+          |refund
+          |from
+          |dwd.dwd_fact_order_info
+          |where  dt = $dt
+          |group by shop_id,order_type,order_id,freight_money,paid,refund,sku_id
+          |)
+          |group by shop_id,sku_id,order_type
+          |""".stripMargin)
+    writerClickHouse(freightDF, "dws_shop_freight_info")
     // 订单商品信息
     val skuInfoDF = spark.sql(
       s"""
@@ -107,15 +147,18 @@ class DwsETL(spark: SparkSession, dt: String) extends WriteOffLineBase {
          |sku_id,
          |item_name,
          |sku_pic_url,
+         |max(cid_name) as cid_name,
+         |max(shelve_time) as shelve_time,
          |'TC' as order_type,
+         |max(freight_money) as freight_money,
          |count(1) as sale_order_number, --下单笔数
          |max(cost_price) as cost_price,
          |max(payment_price) as payment_price,
-         |nvl(sum(case when paid = 2 and refund = 0 then payment_num end),0) as payment_num,  --支付件数
-         |nvl(cast(sum(case when paid = 2 and refund = 0 then (payment_num * payment_price)+freight_money end) as  decimal(10,2)),0) as payment_succeed_money, -- 支付成功金额
-         |count(case when paid = 2 and refund = 0 then 1 end) as payment_succeed_number, --支付成功数据(成交单量)
-         |cast(sum(cost_price * payment_num) as  decimal(10,2) ) as income_money, -- 收入金额
-         |cast(sum((payment_num * payment_price)+freight_money) as  decimal(10,2)) as payment_money, --下单金额
+         |nvl(sum(case when paid = 2 and refund != 6 then payment_num end),0) as payment_num,  --支付件数
+         |nvl(cast(sum(case when paid = 2 then payment_num * payment_price end) as  decimal(10,2)),0) as payment_succeed_money, -- 支付成功金额
+         |count(case when paid = 2 and refund != 6 then 1 end) as payment_succeed_number, --支付成功数据(成交单量)
+         |nvl(cast(sum((item_original_price - cost_price) * payment_num) as  decimal(10,2) ),0) as income_money, -- 收入金额
+         |cast(sum(payment_num * payment_price) as  decimal(10,2)) as payment_money, --下单金额
          |'$partitionDt' as dt
          |from
          |dwd.dwd_fact_order_info
@@ -127,15 +170,18 @@ class DwsETL(spark: SparkSession, dt: String) extends WriteOffLineBase {
          |sku_id,
          |item_name,
          |sku_pic_url,
+         |max(cid_name) as cid_name,
+         |max(shelve_time) as shelve_time,
          |'ALL' as order_type,
+         |max(freight_money) as freight_money,
          |count(1) as sale_order_number, --下单笔数
          |max(cost_price) as cost_price,
          |max(payment_price) as payment_price,
-         |nvl(sum(case when paid = 2 and refund = 0 then payment_num end),0) as payment_num,  --支付件数
-         |nvl(cast(sum(case when paid = 2 and refund = 0 then (payment_num * payment_price)+freight_money end) as  decimal(10,2)),0) as payment_succeed_money, -- 支付成功金额
-         |count(case when paid = 2 and refund = 0 then 1 end) as payment_succeed_number, --支付成功数据(成交单量)
-         |cast(sum(cost_price * payment_num) as  decimal(10,2) ) as income_money, -- 收入金额
-         |cast(sum((payment_num * payment_price)+freight_money) as  decimal(10,2)) as payment_money, --下单金额
+         |nvl(sum(case when paid = 2 and refund != 6 then payment_num end),0) as payment_num,  --支付件数
+         |nvl(cast(sum(case when paid = 2 then payment_num * payment_price end) as  decimal(10,2)),0) as payment_succeed_money, -- 支付成功金额
+         |count(case when paid = 2 and refund != 6 then 1 end) as payment_succeed_number, --支付成功数据(成交单量)
+         |nvl(cast(sum(case when order_type != 'TG' then (item_original_price - cost_price) * payment_num else group_purchase_commission end) as  decimal(10,2) ) ,0)  as income_money, -- 收入金额
+         |cast(sum(payment_num * payment_price) as  decimal(10,2)) as payment_money, --下单金额
          |'$partitionDt' as dt
          |from
          |dwd.dwd_fact_order_info
@@ -147,15 +193,18 @@ class DwsETL(spark: SparkSession, dt: String) extends WriteOffLineBase {
          |sku_id,
          |item_name,
          |sku_pic_url,
+         |max(cid_name) as cid_name,
+         |max(shelve_time) as shelve_time,
          |'TB' as order_type,
+         |max(freight_money) as freight_money,
          |count(1) as sale_order_number, --下单笔数
          |max(cost_price) as cost_price,
          |max(payment_price) as payment_price,
          |nvl(sum(case when paid = 2 and type != 9 and type != 10 then payment_num end),0) as payment_num,  --支付件数
-         |nvl(cast(sum(case when paid = 2 and type != 9 and type != 10 then (payment_num * payment_price)+freight_money end) as  decimal(10,2)),0) as payment_succeed_money, -- 支付成功金额
+         |nvl(cast(sum(case when paid = 2 then payment_num * payment_price end) as  decimal(10,2)),0) as payment_succeed_money, -- 支付成功金额
          |count(case when paid = 2 and type != 9 and type != 10 then 1 end) as payment_succeed_number, --支付成功数据(成交单量)
-         |cast(sum(cost_price * payment_num) as  decimal(10,2) ) as income_money, -- 收入金额
-         |cast(sum((payment_num * payment_price)+freight_money) as  decimal(10,2)) as payment_money, --下单金额
+         |nvl(cast(sum((item_original_price - cost_price) * payment_num) as  decimal(10,2) ),0) as income_money, -- 收入金额
+         |cast(sum(payment_num * payment_price) as  decimal(10,2)) as payment_money, --下单金额
          |'$partitionDt' as dt
          |from
          |dwd.dwd_fact_outbound_bill_info
@@ -167,15 +216,18 @@ class DwsETL(spark: SparkSession, dt: String) extends WriteOffLineBase {
          |sku_id,
          |item_name,
          |sku_pic_url,
+         |max(cid_name) as cid_name,
+         |max(shelve_time) as shelve_time,
          |'TG' as order_type,
+         |max(freight_money) as freight_money,
          |count(1) as sale_order_number, --下单笔数
          |max(cost_price) as cost_price,
          |max(payment_price) as payment_price,
-         |nvl(sum(case when paid = 2 and refund = 0 then payment_num end),0) as payment_num,  --支付件数
-         |nvl(cast(sum(case when paid = 2 and refund = 0 then (payment_num * payment_price)+freight_money end) as  decimal(10,2)),0) as payment_succeed_money, -- 支付成功金额
-         |count(case when paid = 2 and refund = 0 then 1 end) as payment_succeed_number, --支付成功数据(成交单量)
-         |cast(sum(cost_price * payment_num) as  decimal(10,2) ) as income_money, -- 收入金额
-         |cast(sum((payment_num * payment_price)+freight_money) as  decimal(10,2)) as payment_money, --下单金额
+         |nvl(sum(case when paid = 2 and refund != 6 then payment_num end),0) as payment_num,  --支付件数
+         |nvl(cast(sum(case when paid = 2 then payment_num * payment_price end) as  decimal(10,2)),0) as payment_succeed_money, -- 支付成功金额
+         |count(case when paid = 2 and refund != 6 then 1 end) as payment_succeed_number, --支付成功数据(成交单量)
+         |nvl(sum(group_purchase_commission),0) as income_money, -- 收入金额
+         |cast(sum(payment_num * payment_price) as  decimal(10,2)) as payment_money, --下单金额
          |'$partitionDt' as dt
          |from
          |dwd.dwd_fact_order_info
@@ -202,6 +254,7 @@ class DwsETL(spark: SparkSession, dt: String) extends WriteOffLineBase {
          |count(case when refund_status = 6 then 1 end) as refund_number, --成功退款数量
          |cast(sum(case when refund_status = 6 then refund_num * refund_price else 0 end) as decimal(10,2)) as refund_money, --成功退款金额
          |cast (sum(refund_num * refund_price) as  decimal(10,2)) as all_money, -- 申请退款金额
+         |cast(sum(case when refund_status = 6 then refund_group_commission else 0 end) as decimal(10,2)) as refund_income_money,
          |cast(avg(avg_time) as  decimal(10,2)) as avg_time,
          |'$partitionDt' as dt
          |from
@@ -220,6 +273,7 @@ class DwsETL(spark: SparkSession, dt: String) extends WriteOffLineBase {
          |count(case when refund_status = 6 then 1 end) as refund_number, --成功退款数量
          |cast(sum(case when refund_status = 6 then refund_num * refund_price else 0 end) as decimal(10,2)) as refund_money, --成功退款金额
          |cast (sum(refund_num * refund_price) as  decimal(10,2))as all_money, -- 申请退款金额
+         |cast(sum(case when refund_status = 6 then refund_group_commission else 0 end) as decimal(10,2)) as refund_income_money,
          |cast (avg(avg_time) as  decimal(10,2)) as avg_time,
          |'$partitionDt' as dt
          |from
@@ -236,6 +290,7 @@ class DwsETL(spark: SparkSession, dt: String) extends WriteOffLineBase {
          |count(case when refund_status = 6 then 1 end) as refund_number, --成功退款数量
          |cast(sum(case when refund_status = 6 then refund_num * refund_price else 0 end) as decimal(10,2)) as refund_money, --成功退款金额
          |cast (sum(refund_num * refund_price) as  decimal(10,2))as all_money, -- 申请退款金额
+         |cast(sum(case when refund_status = 6 then refund_group_commission else 0 end) as decimal(10,2)) as refund_income_money,
          |cast(avg(avg_time) as  decimal(10,2)) as avg_time,
          |'$partitionDt' as dt
          |from
@@ -244,7 +299,7 @@ class DwsETL(spark: SparkSession, dt: String) extends WriteOffLineBase {
          |group by shop_id,refund_reason,sku_id,item_name,sku_pic_url
          |union all
          |select
-         |shop_id,
+         |group_leader_shop_id as shop_id,
          |refund_reason,
          |sku_id,
          |sku_pic_url,
@@ -254,12 +309,13 @@ class DwsETL(spark: SparkSession, dt: String) extends WriteOffLineBase {
          |count(case when refund_status = 6 then 1 end) as refund_number, --成功退款数量
          |cast(sum(case when refund_status = 6 then refund_num * refund_price else 0 end) as decimal(10,2)) as refund_money, --成功退款金额
          |cast (sum(refund_num * refund_price) as  decimal(10,2))as all_money, -- 申请退款金额
+         |cast(sum(case when refund_status = 6 then refund_group_commission else 0 end) as decimal(10,2)) as refund_income_money,
          |cast (avg(avg_time) as  decimal(10,2)) as avg_time,
          |'$partitionDt' as dt
          |from
          |dwd.dwd_fact_order_refund_info
          |where  dt=$dt and order_type = 'TG'
-         |group by shop_id,refund_reason,sku_id,item_name,sku_pic_url
+         |group by group_leader_shop_id,refund_reason,sku_id,item_name,sku_pic_url
          |""".stripMargin)
     writerClickHouse(orderRefundInfoDF, "dws_shop_deal_refund_info")
     // 在架商品

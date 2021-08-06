@@ -22,6 +22,7 @@ case class RefundDBEntity(
                            @BeanProperty refundReason: String, // 退款退货原因
                            @BeanProperty questionDescription: String, //问题描述
                            @BeanProperty refundTotalMoney: Double, //可退的总金额
+                           @BeanProperty applyRefundMoney: Double, //可退的总金额
                            @BeanProperty updateTime: Long, // 方便下游CLICKHOUSE 做去重操作
                            @BeanProperty hour: String, //小时
                            @BeanProperty day: String
@@ -38,6 +39,7 @@ object RefundDBEntity {
       rowData.getColumns.get("refund_reason"),
       rowData.getColumns.get("question_description"),
       if(StringUtils.isNotEmpty(rowData.getColumns.get("refund_total_money"))) rowData.getColumns.get("refund_total_money").toDouble else 0,
+      if(StringUtils.isNotEmpty(rowData.getColumns.get("apply_refund_money"))) rowData.getColumns.get("apply_refund_money").toDouble else 0,
       dataTime.getMillis,
       dataTime.toString("HH"),
       dataTime.toString("yyyy-MM-dd")

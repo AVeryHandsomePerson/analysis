@@ -5,7 +5,6 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.SparkSession
 import org.joda.time.DateTime
 import udf.UDFRegister
-
 import scala.util.Try
 
 /**
@@ -17,8 +16,8 @@ import scala.util.Try
 class DwdETL(spark: SparkSession, dt: String) {
   def process(): Unit = {
     UDFRegister.FileIpMapping(spark)
+    UDFRegister.cidThreeMapping(spark, dt)
     val yesterDay = new DateTime(DateUtils.parseDate(dt, "yyyyMMdd")).minusDays(1).toString("yyyyMMdd")
-
     /**
      * 订单表
      * 订单和订单明细关联
@@ -102,6 +101,99 @@ class DwdETL(spark: SparkSession, dt: String) {
          |where level = 1 and  dt=$dt) t1
          |on t2.parent_cid = t1.cid
          |""".stripMargin).createOrReplaceTempView("dim_goods_cat")
+    // 商品表 信息
+    spark.sql(
+      s"""
+         |select
+         |shop_id,
+         |shelve_time,
+         |item_id,
+         |item_name,
+         |picture_url,
+         |cat_3d_name as cid_name
+         |from
+         |(
+         |select
+         |shop_id,
+         |shelve_time,
+         |item_id,
+         |item_name,
+         |'' as picture_url,
+         |cid
+         |from
+         |dwd.fact_item
+         |where end_zipper_time = '9999-12-31'
+         |) a
+         |left join
+         |dim_goods_cat b
+         |on a.cid = b.cat_3d_id
+      """.stripMargin).createOrReplaceTempView("item")
+    spark.sql(
+      s"""
+         |
+         |select
+         |shop_id,
+         |shelve_time,
+         |item_id,
+         |item_name,
+         |picture_url,
+         |cat_3d_name as cid_name
+         |from
+         |(
+         |select
+         |shop_id,
+         |create_time as shelve_time,
+         |id as item_id,
+         |item_name,
+         |pic_url as picture_url,
+         |cid
+         |from
+         |ods.ods_item_master
+         |where dt=$dt
+         |) a
+         |left join
+         |dim_goods_cat b
+         |on a.cid = b.cat_3d_id
+         |""".stripMargin).createOrReplaceTempView("item_master")
+    spark.sql(
+      """
+        |select
+        |*
+        |from
+        |item
+        |union all
+        |select
+        |*
+        |from
+        |item_master
+        |""".stripMargin).createOrReplaceTempView("item_tmp")
+    // 退货表
+    spark.sql(
+      s"""
+         |select
+         |id,
+         |shop_id,
+         |order_id,
+         |refund_status
+         |from dwd.fact_refund_apply
+         |where dt = $dt and end_zipper_time = '9999-12-31' and refund_status = 6
+         |""".stripMargin).createOrReplaceTempView("refund_succeed")
+    // 退货明细表
+    spark.sql(
+      s"""
+         |select
+         |refund_id as id,
+         |order_id,
+         |sku_id,
+         |item_id,
+         |sku_pic_url,
+         |item_name,
+         |refund_num,
+         |refund_price
+         |from
+         |ods.ods_refund_detail
+         |where dt =$dt
+         |""".stripMargin).createOrReplaceTempView("refund_detail")
     /**
      * 出库订单表
      * 订单 和 出库表关联 过滤出渠道订单信息
@@ -138,7 +230,7 @@ class DwdETL(spark: SparkSession, dt: String) {
          |e.name as seller_name,
          |a.order_source,
          |a.paid,
-         |a.refund,
+         |case when refund.refund_status is not null then refund.refund_status  else 0 end as refund,
          |d.province_name,
          |d.city_name,
          |d.country_name,
@@ -165,6 +257,8 @@ class DwdETL(spark: SparkSession, dt: String) {
          |a.group_purchase_commission,
          |a.group_leader_shop_id,
          |a.group_leader_user_id,
+         |item.shelve_time, --上架时间
+         |item.cid_name, --类目名称
          |$dt
          |from
          |orders a
@@ -189,6 +283,12 @@ class DwdETL(spark: SparkSession, dt: String) {
          |left join
          |outbound_bill l
          |on a.order_id = l.order_id
+         |left join
+         |item_tmp item
+         |on a.shop_id = item.shop_id and b.item_id = item.item_id
+         |left join
+         |refund_succeed refund
+         |on a.order_id = refund.order_id
          |""".stripMargin)
     // dwd.dwd_fact_outbound_bill_info
     spark.sql(
@@ -202,7 +302,7 @@ class DwdETL(spark: SparkSession, dt: String) {
          |f.city_name,
          |f.country_name,
          |a.buyer_shop_id as buyer_id,
-         |ifNull(user.name,a.buyer_shop_name) as buyer_name,
+         |a.buyer_shop_name as buyer_name,
          |d.seller_id,
          |s.name as seller_name,
          |b.paid,
@@ -227,6 +327,9 @@ class DwdETL(spark: SparkSession, dt: String) {
          |b.group_purchase_commission, --团购利润
          |b.group_leader_shop_id, --团购利润
          |b.group_leader_user_id, --团购利润
+         |a.shop_name,
+         |item.shelve_time, --上架时间
+         |item.cid_name, --类目名称
          |$dt
          |from
          |outbound_bill a
@@ -259,15 +362,34 @@ class DwdETL(spark: SparkSession, dt: String) {
          |orders_receive f
          |on a.order_id = f.order_id
          |left join
-         |user
-         |on b.buyer_id = user.id
-         |left join
          |user s
          |on d.seller_id = s.id
          |left join
          |dim_goods_cat
          |on d.cid = dim_goods_cat.cat_3d_id
+         |left join
+         |item_tmp item
+         |on d.shop_id = item.shop_id and d.item_id = item.item_id
          |""".stripMargin)
+    // 退款成功订单和退款明细表关联,得到退款价钱
+//    spark.sql(
+//      s"""
+//        |insert overwrite table dwd.dwd_shop_refund_money
+//        |select
+//        |a.shop_id,
+//        |b.sku_id,
+//        |round(b.refund_num * refund_price,2) as refund_money,
+//        |$dt
+//        |from
+//        |refund_succeed a
+//        |inner join
+//        |refund_detail b
+//        |on a.id = b.id
+//        |""".stripMargin)
+
+
+
+
 
     //------------------------------------------------
     // 退货表
@@ -285,28 +407,12 @@ class DwdETL(spark: SparkSession, dt: String) {
          |refund_reason,
          |group_leader_shop_id,
          |group_leader_check_status,
+         |refund_group_commission,
          |create_time,
          |modify_time
          |from dwd.fact_refund_apply
          |where dt = $dt and end_zipper_time = '9999-12-31'
          |""".stripMargin).createOrReplaceTempView("refund_apply")
-    // 退货明细表
-    spark.sql(
-      s"""
-         |select
-         |refund_id as id,
-         |order_id,
-         |refund_id,
-         |sku_id,
-         |item_id,
-         |sku_pic_url,
-         |item_name,
-         |refund_num,
-         |refund_price
-         |from
-         |ods.ods_refund_detail
-         |where dt =$dt
-         |""".stripMargin).createOrReplaceTempView("refund_detail")
     // 退款流程表
     spark.sql(
       s"""
@@ -355,6 +461,7 @@ class DwdETL(spark: SparkSession, dt: String) {
          |nvl(cast((unix_timestamp(max_time,'yyyy-MM-dd HH:mm:ss') - unix_timestamp(min_time,'yyyy-MM-dd HH:mm:ss'))/60 as decimal(10,2)),0) as avg_time, --平均处理时间
          |a.group_leader_shop_id,
          |a.group_leader_check_status,
+         |a.refund_group_commission,
          |$dt
          |from
          |refund_apply a

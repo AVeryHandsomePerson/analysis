@@ -2,7 +2,6 @@ package shop
 
 import `trait`.BaseOffLineETL
 import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
-
 import java.util.Properties
 
 /**

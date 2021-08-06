@@ -505,6 +505,7 @@ refundStatus Int64, \
 refundReason String, \
 questionDescription String, \
 refundTotalMoney Double, \
+applyRefundMoney Double, \
 updateTime Int64, \
 hour String, \
 day String \
@@ -524,9 +525,10 @@ updateTime Int64, \
 hour String, \
 day String \
 ) \
-ENGINE = MergeTree()\
+ENGINE = ReplacingMergeTree(orderId)\
+primary key orderId \
 PARTITION BY (day,hour) \
-ORDER BY (day,hour) \
+ORDER BY (orderId,day,hour) \
 SETTINGS index_granularity = 8192;
 
 //创建分布式表
@@ -540,6 +542,7 @@ refundStatus Int64, \
 refundReason String, \
 questionDescription String, \
 refundTotalMoney Double, \
+applyRefundMoney    Double,\
 updateTime Int64, \
 hour String, \
 day String \

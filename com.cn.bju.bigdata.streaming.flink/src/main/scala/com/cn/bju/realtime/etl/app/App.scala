@@ -1,7 +1,7 @@
 package com.cn.bju.realtime.etl.app
 
 import com.alibaba.fastjson.JSON
-import com.cn.bju.realtime.etl.process.{ClickLogDataETL, OrderDataETL, OrderDetailDataETL, OutBoundBillETL, RefundDataETL}
+import com.cn.bju.realtime.etl.process.{ClickLogDataETL, OrderDataETL, OrderDetailDataETL, OutBoundBillETL, RefundDataETL, RefundDetailDataETL}
 import org.apache.flink.api.common.restartstrategy.RestartStrategies
 import org.apache.flink.runtime.state.filesystem.FsStateBackend
 import org.apache.flink.streaming.api.{CheckpointingMode, TimeCharacteristic}
@@ -39,21 +39,24 @@ object App {
     //     指定重启策略，默认的是不停的重启
     //     程序出现异常的时候，会进行重启，重启五次，每次延迟5秒钟，如果超过了五次，程序退出
     env.setRestartStrategy(RestartStrategies.fixedDelayRestart(5, 5000))
-    // 订单
+    //订单
     val orderProcess: OrderDataETL = new OrderDataETL(env)
     orderProcess.process()
-//    // 流量点击
-//    val clickLogDataETL: ClickLogDataETL = new ClickLogDataETL(env)
-//    clickLogDataETL.process()
-//    // 订单明细表
-//    val orderDetailDataETL: OrderDetailDataETL = new OrderDetailDataETL(env)
-//    orderDetailDataETL.process()
-//    // 退款表
-//    val refundDataETL: RefundDataETL = new RefundDataETL(env)
-//    refundDataETL.process()
-//    // 仓库信息
-//    val outBoundBillETL: OutBoundBillETL = new OutBoundBillETL(env)
-//    outBoundBillETL.process()
+    //流量点击
+    val clickLogDataETL: ClickLogDataETL = new ClickLogDataETL(env)
+    clickLogDataETL.process()
+    //订单明细表
+    val orderDetailDataETL: OrderDetailDataETL = new OrderDetailDataETL(env)
+    orderDetailDataETL.process()
+    //退款表
+    val refundDataETL: RefundDataETL = new RefundDataETL(env)
+    refundDataETL.process()
+    //退款明细表
+    val refundDetailDataETL: RefundDetailDataETL = new RefundDetailDataETL(env)
+    refundDetailDataETL.process()
+    //仓库信息
+    val outBoundBillETL: OutBoundBillETL = new OutBoundBillETL(env)
+    outBoundBillETL.process()
 
 
     env.execute("=============> true")
