@@ -111,6 +111,50 @@ class DwsETL(spark: SparkSession, dt: String) extends WriteOffLineBase {
          |group by group_leader_shop_id,buyer_id,buyer_name,sku_id,item_name,pick_id,pick_name,province_name,city_name,country_name,sku_pic_url,paid,refund,po_type,seller_id,seller_name,cid,cat_3d_name
          |""".stripMargin)
     writerClickHouse(dwsShopDealInfoDF, "dws_shop_deal_info")
+    // 订单维度信息
+    /***
+     * 用于计算店铺下订单数，订单支付金额
+     *   维度最低为订单级别
+     *
+     */
+    val dwsShopDealDF = spark.sql(
+      s"""
+         |select
+         |shop_id,
+         |'TC' as order_type,
+         |max(order_id) as order_id,
+         |max(shop_name) as shop_name,
+         |max(buyer_id) as buyer_id,
+         |max(buyer_name) as buyer_name,
+         |max(pick_id) as pick_id,
+         |max(pick_name) as pick_name,
+         |max(province_name) as province_name,
+         |max(city_name) as city_name,
+         |max(country_name) as country_name,
+         |max(paid) as paid,
+         |max(refund) as refund,
+         |max(po_type) as po_type,
+         |max(seller_id) as seller_id,
+         |max(seller_name) as seller_name,
+         |max(freight_money) as freight_money,
+         |pick_order_id,
+         |sum(payment_num) as num, --订单总下单商品件数，不管支付未支付
+         |cast(sum(payment_num * payment_price) as  decimal(10,2)) as payment_money, --下单金额，不管支付不支付
+         |nvl(sum(case when paid = 2 and refund = 0 then payment_num end),0) as payment_num,  --订单总支付商品件数，支付的件数
+         |nvl(cast(sum(case when paid = 2 and refund = 0 then payment_num * payment_price end) as  decimal(10,2)),0) as payment_succeed_money, -- 支付成功金额
+         |count(case when paid = 2 and refund = 0 then 1 end) as payment_succeed_number, --支付的订单数量(成交单量)
+         |nvl(cast(sum((item_original_price - cost_price) * payment_num) as  decimal(10,2) ),0) as income_money, -- 收入金额
+         |'$partitionDt' as dt
+         |from
+         |dwd.dwd_fact_order_info
+         |where  dt = $dt and  order_type = 'TC'
+         |group by shop_id,order_id,pick_order_id
+         ||""".stripMargin)
+
+
+
+
+
     //店铺-订单运费信息表
     val freightDF = spark.sql(
         s"""

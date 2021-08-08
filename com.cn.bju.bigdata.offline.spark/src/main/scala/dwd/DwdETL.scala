@@ -290,6 +290,7 @@ class DwdETL(spark: SparkSession, dt: String) {
          |refund_succeed refund
          |on a.order_id = refund.order_id
          |""".stripMargin)
+
     // dwd.dwd_fact_outbound_bill_info
     spark.sql(
       s"""
